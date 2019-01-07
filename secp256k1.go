@@ -64,12 +64,19 @@ type PublicKey struct {
 	X, Y *big.Int
 }
 
-// Wrapper for key generation
+/*
+Generate a pair of private and puiblic key using ecdsa.
+output: private key
+public can be extracted from private key using EcdsaToPem function provided below.
+*/
 func EcdsaKeyGen() (priv *bitecdsa.PrivateKey, err error) {
 	return bitecdsa.GenerateKey(bitelliptic.S256(), rand.Reader)
 }
-
-// Sign Wrapper exports signature as comptible activeledger string
+/*
+Sign Wrapper exports signature as comptible activeledger string
+input: Private key, Transaction
+output: signature
+*/
 func EcdsaSign(prv *bitecdsa.PrivateKey, data string) string {
 	// Convert Data into byte array
 	dataArray := []byte(data)
@@ -86,7 +93,12 @@ func EcdsaSign(prv *bitecdsa.PrivateKey, data string) string {
 	return b64.StdEncoding.EncodeToString(pointsToDER(r, s))
 }
 
-// Convert Private key object into PCKS1 PEM Private & Public
+
+/*
+Convert Private key object into PCKS1 PEM Private & Public
+input: Private key
+output: Pem formatted Public and private key
+*/
 func EcdsaToPem(prv *bitecdsa.PrivateKey) (string, string) {
 
 	// Marshel Public key points to array
@@ -126,8 +138,12 @@ func EcdsaToPem(prv *bitecdsa.PrivateKey) (string, string) {
 	// Return PEMs
 	return string(pemEncoded), string(pemEncodedPub)
 }
-
-// Convery PEM to Private Public key object
+/*
+Convery PEM to Private Public key object
+input: Pem encoded private key(String)
+output: Private key object
+*/
+ 
 func EcdsaFromPem(pemEncoded string) *bitecdsa.PrivateKey {
 
 	// Decode PEM
@@ -149,9 +165,10 @@ func EcdsaFromPem(pemEncoded string) *bitecdsa.PrivateKey {
 	return privateKey
 }
 
-// Convert an ECDSA signature (points R and S) to a byte array using ASN.1 DER encoding.
-// This is a port of Bitcore's Key.rs2DER method.
-// Author : https://github.com/codelittinc/gobitauth/blob/master/sign.go
+/* Convert an ECDSA signature (points R and S) to a byte array using ASN.1 DER encoding.
+   This is a port of Bitcore's Key.rs2DER method.
+   Author : https://github.com/codelittinc/gobitauth/blob/master/sign.go
+*/
 func pointsToDER(r, s *big.Int) []byte {
 	// Ensure MSB doesn't break big endian encoding in DER sigs
 	prefixPoint := func(b []byte) []byte {

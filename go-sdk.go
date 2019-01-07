@@ -24,9 +24,9 @@ package sdk
 
 import(
   "os"
-	"fmt"  
+  "fmt"  
 )
-
+//Utility function to check and print error if any.
 func checkError(err error){
 	if err !=nil{
 		fmt.Println("Fatal Error ", err.Error())

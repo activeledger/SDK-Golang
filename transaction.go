@@ -28,12 +28,14 @@ import(
 	"net/http"
 	"encoding/json"
 )
- 
+ //Transaction elements
  type Transaction struct {
 	 TxObject TxObject `json:"$tx"` 
 	 SelfSign bool `json:"$selfsign"`
 	 Signature map[string]interface{} `json:"$sigs"`
   }
+
+  // Object within a transaction
   type TxObject struct {
 	Namespace string  `json:"$namespace"`
 	Contract string `json:"$contract"`
@@ -43,6 +45,10 @@ import(
 	
  }
 
+ /*
+ Sending complete transaction the activeledger network.
+ input: transaction,url
+ */
 
  func SendTransaction(transaction Transaction,url string){
 

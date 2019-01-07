@@ -25,6 +25,13 @@ package sdk
 import (
 	"net/url"
 )
+
+/*
+Connection struct for creating connection opbject.
+Shceme: Protocol used for the network eg http or https
+Url: IP address of the network
+Port: port of the network
+*/
 type Connection struct{
 	Scheme string
 	Url string
@@ -32,7 +39,9 @@ type Connection struct{
 }
 
 var conn string
-
+/*
+Setter and getter for the URL connection string.
+*/
 func SetUrl(connection Connection) {
 
 	u := &url.URL{

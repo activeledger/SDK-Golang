@@ -30,7 +30,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 )
-
+/*
+  Generate a pair of RSA private and public key. 
+  Output: Private key object. 
+  Public key can be extracted using 
+  publicKey:=key.PublicKey
+*/
 func RsaKeyGen() *rsa.PrivateKey{
 	reader:= rand.Reader
 	bitSize:=2048
@@ -39,6 +44,11 @@ func RsaKeyGen() *rsa.PrivateKey{
 	return key
 }
 
+/*
+Sign a transaction using your private key. Data is hashed using SHA256 before signing.
+Input: Private Key,Transaction byte array
+Output: Signature byte Array
+*/
 func  RsaSign(r rsa.PrivateKey,data []byte) ([]byte, error) {
 	h := sha256.New()
 	h.Write(data)
@@ -47,6 +57,11 @@ func  RsaSign(r rsa.PrivateKey,data []byte) ([]byte, error) {
 	return r.Sign(rand.Reader,d,crypto.SHA256)
 }
 
+/*
+Convertying your public key into pem format. This is necessary when sending public key in a transaction.
+Input: Public Key
+Output: Pem formated public key
+*/
 func RsaToPem(pubkey rsa.PublicKey) (string) {
 	
 	pubkey_bytes, err := x509.MarshalPKIXPublicKey(&pubkey)
