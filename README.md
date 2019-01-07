@@ -100,6 +100,6 @@ The key must be one that has been successfully onboarded to the ledger which the
 
 ---
 
-This project is licensed under the [MIT](https://github.com/activeledger/activeledger/blob/master/LICENSE) License
+This project is licensed under the [MIT](https://github.com/activeledger/SDK-Golang/blob/master/LICENSE) License
 
 
