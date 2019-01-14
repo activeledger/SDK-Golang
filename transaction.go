@@ -30,6 +30,7 @@ import(
 )
  //Transaction elements
  type Transaction struct {
+	 Territoriality string  `json:"$territoriality,omitempty"`
 	 TxObject TxObject `json:"$tx"` 
 	 SelfSign bool `json:"$selfsign"`
 	 Signature map[string]interface{} `json:"$sigs"`
