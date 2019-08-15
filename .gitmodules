@@ -1,0 +1,3 @@
+[submodule "sseclient"]
+	path = sseclient
+	url = ./sseclient
