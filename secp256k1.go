@@ -29,8 +29,9 @@ import (
 	b64 "encoding/base64"
 	"encoding/pem"
 	"math/big"
-	"github.com/titanous/bitcoin-crypto/bitecdsa"
-	"github.com/titanous/bitcoin-crypto/bitelliptic"
+
+	"./bitcoin-crypto/bitecdsa"
+	"./bitcoin-crypto/bitelliptic"
 )
 
 // Private Key PEM Struct
@@ -72,6 +73,7 @@ public can be extracted from private key using EcdsaToPem function provided belo
 func EcdsaKeyGen() (priv *bitecdsa.PrivateKey, err error) {
 	return bitecdsa.GenerateKey(bitelliptic.S256(), rand.Reader)
 }
+
 /*
 Sign Wrapper exports signature as comptible activeledger string
 input: Private key, Transaction
@@ -92,7 +94,6 @@ func EcdsaSign(prv *bitecdsa.PrivateKey, data string) string {
 	// Convert to DER & return as b64 string
 	return b64.StdEncoding.EncodeToString(pointsToDER(r, s))
 }
-
 
 /*
 Convert Private key object into PCKS1 PEM Private & Public
@@ -138,12 +139,13 @@ func EcdsaToPem(prv *bitecdsa.PrivateKey) (string, string) {
 	// Return PEMs
 	return string(pemEncoded), string(pemEncodedPub)
 }
+
 /*
 Convery PEM to Private Public key object
 input: Pem encoded private key(String)
 output: Private key object
 */
- 
+
 func EcdsaFromPem(pemEncoded string) *bitecdsa.PrivateKey {
 
 	// Decode PEM
