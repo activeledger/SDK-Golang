@@ -23,15 +23,15 @@
 package sdk
 
 import (
+	"app/bitcoin-crypto/bitecdsa"
+	"app/bitcoin-crypto/bitelliptic"
+
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/asn1"
 	b64 "encoding/base64"
 	"encoding/pem"
 	"math/big"
-
-	"./bitcoin-crypto/bitecdsa"
-	"./bitcoin-crypto/bitelliptic"
 )
 
 // Private Key PEM Struct
@@ -71,7 +71,11 @@ output: private key
 public can be extracted from private key using EcdsaToPem function provided below.
 */
 func EcdsaKeyGen() (priv *bitecdsa.PrivateKey, err error) {
-	return bitecdsa.GenerateKey(bitelliptic.S256(), rand.Reader)
+
+	key, err := bitecdsa.GenerateKey(bitelliptic.S256(), rand.Reader)
+	ECKey = key
+	KeyType = Encrptype[EC]
+	return key, err
 }
 
 /*

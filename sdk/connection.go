@@ -20,30 +20,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 package sdk
 
 import (
-	"./sseclient"
+	"net/url"
 )
 
-func subscribe(host string, port string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/activity/subscribe")
-	return events, err
+/*
+Connection struct for creating connection opbject.
+Shceme: Protocol used for the network eg http or https
+Url: IP address of the network
+Port: port of the network
+*/
+type Connection struct{
+	Scheme string
+	Url string
+	Port string
 }
-func subscribeStream(host string, port string, stream string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/activity/subscribe/" + stream)
-	return events, err
+
+var conn string
+/*
+Setter and getter for the URL connection string.
+*/
+func SetUrl(connection Connection) {
+
+	u := &url.URL{
+		Scheme:   connection.Scheme,
+		Host:     connection.Url+":"+connection.Port,
+	}
+	conn=u.String()
 }
-func eventSubscribeContract(host string, port string, contract string, event string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/events/" + contract + "/" + event)
-	return events, err
-}
-func eventSubscribe(host string, port string, contract string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/events/" + contract)
-	return events, err
-}
-func allEventSubscribe(host string, port string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/events")
-	return events, err
+
+func GetUrl() string{
+	return conn
 }
