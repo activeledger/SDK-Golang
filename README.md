@@ -72,7 +72,9 @@ Once you have a key generated, to use it to sign transactions it must be onboard
 
 ##### Example
 ```go
-resp := onboardRSA(key, sdk.RSA/sdk.EC, <keyName>) //resp is on object with code and description. Description in this case is  a StreamID or error(Can be distinguished using the code)
+resp := onboardRSA(key, sdk.RSA, <keyName>) //resp is on object with code and description. Description in this case is  a StreamID or error(Can be distinguished using the code)
+
+resp := onboardEC(key,sdk.EC, <keyName>) //resp is on object with code and description. Description in this case is  a StreamID or error(Can be distinguished using the code)
 ```
 
 
