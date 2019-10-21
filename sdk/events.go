@@ -25,26 +25,68 @@ package sdk
 
 import (
 	"app/sseclient"
+	"log"
+	"net/url"
 )
 
-func subscribe(host string, port string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/activity/subscribe")
+func Subscribe(host string) (chan sseclient.Event, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rel, err := u.Parse("/api/activity/subscribe")
+	if err != nil {
+		log.Fatal(err)
+	}
+	events, err := sseclient.OpenURL(rel.String())
 
 	return events, err
 }
-func subscribeStream(host string, port string, stream string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/activity/subscribe/" + stream)
+func SubscribeStream(host string, stream string) (chan sseclient.Event, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rel, err := u.Parse("/api/activity/subscribe/" + stream)
+	if err != nil {
+		log.Fatal(err)
+	}
+	events, err := sseclient.OpenURL(rel.String())
 	return events, err
 }
-func eventSubscribeContract(host string, port string, contract string, event string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/events/" + contract + "/" + event)
+func EventSubscribeContract(host string, contract string, event string) (chan sseclient.Event, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rel, err := u.Parse("/api/events/" + contract + "/" + event)
+	if err != nil {
+		log.Fatal(err)
+	}
+	events, err := sseclient.OpenURL(rel.String())
 	return events, err
 }
-func eventSubscribe(host string, port string, contract string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/events/" + contract)
+func EventSubscribe(host string, contract string) (chan sseclient.Event, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rel, err := u.Parse("/api/events/" + contract)
+	if err != nil {
+		log.Fatal(err)
+	}
+	events, err := sseclient.OpenURL(rel.String())
 	return events, err
 }
-func allEventSubscribe(host string, port string) (chan sseclient.Event, error) {
-	events, err := sseclient.OpenURL("http://" + host + ":" + port + "/api/events")
+func AllEventSubscribe(host string) (chan sseclient.Event, error) {
+	u, err := url.Parse(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rel, err := u.Parse("/api/events/")
+	if err != nil {
+		log.Fatal(err)
+	}
+	events, err := sseclient.OpenURL(rel.String())
 	return events, err
 }

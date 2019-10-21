@@ -50,7 +50,7 @@ There are two key types that can be generated currently, more are planned and wi
   privatekey:=sdk.RsaKeyGen()
   publicKey:=privatekey.PublicKey
 //ECDSA  
-  privateKey,_ := sdk.EcdsaKeyGen() // public key can be extract using private key e.g. privateKey.PublicKey
+  privateKey,_ := sdk.EcdsaKeyGen()
 
 
 ```
@@ -66,53 +66,63 @@ There are two key types that can be generated currently, more are planned and wi
 ```
 
 
-#### Onboarding a key
+#### Onboarding a key and creating a transaction
 
 Once you have a key generated, to use it to sign transactions it must be onboarded to the ledger network
 
 ##### Example
+
 ```go
-resp := onboardRSA(key, sdk.RSA, <keyName>) //resp is on object with code and description. Description in this case is  a StreamID or error(Can be distinguished using the code)
-
-resp := onboardEC(key,sdk.EC, <keyName>) //resp is on object with code and description. Description in this case is  a StreamID or error(Can be distinguished using the code)
-```
-
-
-#### Creating a transaction
-```go
-  tx := new(sdk.TxObject) //create a new TxObject
-  tx.Namespace = <namespace>
-  tx.Contract = <contract>
-  tx.entry = <entry> //optional
-  tx.Input=<input> // map[string]interface{}
-  tx.Output=<output> // map[string]interface{}. optional
-  tx.ReadOnly=<readOnly> // map[string]interface{}. Optional
+ txObject:=sdk.TxObject{Namespace:"default",Contract:"onboard",Input:input,Output:output,ReadOnly:readOnly}
+  tx,_:=json.Marshal(txObject)
+  //rsa
+  signedMessage,_:=sdk.RsaSign(*privatekey,[]byte(tx))
+  //ecdsa
+  pemPrivate := sdk.EcdsaFromPem(privatekeyStr)
+  signedMessage := sdk.EcdsaSign(pemPrivate,string(tx))
   
-  
-  
-  var trxReq = new(sdk.TransactionReq)// a transaction request object
-  trxReq.TxObject = *tx
-  trxReq.SelfSign = true/false
-  trxReq.StreamID = <StreamId>
-  trxReq.KeyName = <keyName>
-  trxReq.RsaKey = <key>
-  trxReq.KeyType = sdk.Encrptype[sdk.RSA/sdk.EC]
-  
-  
-  txObject:=sdk.TxObject{Namespace:"default",Contract:"onboard",Input:input,Output:output,ReadOnly:readOnly}
-  
-  sdk.SetUrl(sdk.Connection{Scheme:"protocol",Url:"url",Port:"port"}) //Set connection url
-  txResp := sdk.CreateTransaction(*trxReq) //Returns a transaction object
-  sdk.SendTransaction(*txResp,sdk.GetUrl()) // Returns Response object with Code and Description. Description is either a stream ID or error(Can be distinguished using code)
-  
-  or
-  
-  sdk.CreateAndSendTransaction(*txResp)// Creates and Sends the transaction. Returns Response object with Code and Description. Description is either a stream ID or error(Can be distinguished using code)
-  
- 
+  signature["identity"]=signedMessage
+  selfsign:=true
+  transaction:=sdk.Transaction{TxObject:txObject,SelfSign:selfsign,Signature:signature}
+  sdk.SetUrl(sdk.Connection{Scheme:"protocol",Url:"url",Port:"port"})
+  sdk.SendTransaction(transaction,sdk.GetUrl())
 ```
 
 ---
+
+#### Signing & sending a transaction
+
+When signing a transaction you must send the finished version of it. No changes can be made after signing as this will cause the ledger to reject it.
+
+The key must be one that has been successfully onboarded to the ledger which the transaction is being sent to.
+
+
+## Events Subscription
+
+SDK contains different helper functions for the purpose of subscribing to different events.
+
+- Subscribe(host) // host=protocol://ip:port
+- SubscribeStream(host,stream)
+- EventSubscribeContract(host,contract,event)
+- EventSubscribe(host,contract)
+- AllEventSubscribe(host)
+
+They all return events which can then be used by developers.
+
+## ActivityStreams
+
+SDK also contains helper functions to get and search streams from Activeledger.
+- GetActivityStreams(host, ids) // host=protocol://ip:port
+- GetActivityStream(host, id)
+- GetActivityStreamVolatile(host, id)
+- SetActivityStreamVolatile(host, id, bdy) // Anything in the bdy will be written to that location for that stream id.
+- GetActivityStreamChanges(host)
+- SearchActivityStreamPost(host, query) //post request
+- SearchActivityStreamGet(host, query) //get Request
+- FindTransaction(host, umid )
+
+They all return map[string]interface{}.
+
 
 ## License
 
