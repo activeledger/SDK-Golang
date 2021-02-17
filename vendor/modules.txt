@@ -1,0 +1,7 @@
+# github.com/peterhellberg/sseclient v0.0.0-20190910165922-d1094337c01e
+## explicit
+github.com/peterhellberg/sseclient
+# github.com/titanous/bitcoin-crypto v0.0.0-20121127183713-5eeb3a67e50a
+## explicit
+github.com/titanous/bitcoin-crypto/bitecdsa
+github.com/titanous/bitcoin-crypto/bitelliptic

@@ -61,7 +61,7 @@ func RsaSign(r rsa.PrivateKey, data []byte) ([]byte, error) {
 }
 
 /*
-Convertying your public key into pem format. This is necessary when sending public key in a transaction.
+Converting your public key into pem format. This is necessary when sending public key in a transaction.
 Input: Public Key
 Output: Pem formated public key
 */
@@ -100,10 +100,10 @@ func RsaToPem(pubkey rsa.PublicKey) string {
 	return string(pubkey_pem)
 }
 
-func RsaPrivToPem(pubkey rsa.PrivateKey) string {
+func RsaPrivToPem(prvkey rsa.PrivateKey) string {
 	privkey_pem := pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(&pubkey)})
+			Bytes: x509.MarshalPKCS1PrivateKey(&prvkey)})
 	return string(privkey_pem)
 }

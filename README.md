@@ -10,6 +10,11 @@ The Activeledger Golang SDK has been built to provide an easy way to connect you
 
 [Read Activeledgers documentation](https://github.com/activeledger/activeledger)
 
+## Installation
+
+```sh
+go get github.com/activeledger/SDK-Golang
+```
 
 ## Usage
 
@@ -20,6 +25,14 @@ The SDK currently supports the following functionality
 - Key onboarding
 - Transaction building
 
+### Import
+
+```go
+import (
+  sdk "github.com/activeledger/SDK-Golang"
+)
+```
+
 ### Connection
 
 When sending a transaction, you must pass a connection that provides the information needed to establish a link to the network and specified node.
@@ -27,11 +40,25 @@ When sending a transaction, you must pass a connection that provides the informa
 To do this a connection object must be created. This object must be passed the protocol, address, and port.
 
 ```go
-sdk.SetUrl(sdk.Connection{Scheme:"protocol",Url:"url",Port:"port"})
+connection := sdk.Connection {
+  Scheme:"protocol",
+  Url:"url",
+  Port:"port"
+}
+
+sdk.SetUrl(connection)
 ```
-#### Example
+
+#### Example - Connecting to the Activeledger public testnet
+
 ```go
-sdk.SetUrl(sdk.Connection{Scheme:"http",Url:"testnet-uk.activeledger.io",Port:"5260"})
+connection := sdk.Connection {
+  Scheme:"http",
+  Url:"testnet-uk.activeledger.io",
+  Port:"5260"
+}
+
+sdk.SetUrl(connection)
 ```
 
 ---
@@ -42,29 +69,32 @@ There are two key types that can be generated currently, more are planned and wi
 
 #### Generating a key
 
-
 ##### Example
 
 ```go
-//RSA
-  privatekey:=sdk.RsaKeyGen()
-  publicKey:=privatekey.PublicKey
-//ECDSA  
-  privateKey,_ := sdk.EcdsaKeyGen()
+// RSA
+// Generate the private key
+privatekey := sdk.RsaKeyGen()
+// Get the public key from the private key
+publicKey := privatekey.PublicKey
 
+// ECDSA
+privateKey, _ := sdk.EcdsaKeyGen()
 
+// See key exporting to get ECDSA Public key
 ```
 
 #### Exporting Key
 
-
 ##### Example
 
 ```go
- publicKeyString:=sdk.RsaToPem(publicKey)
- privatekeyStr,publicKeyString:=sdk.EcdsaToPem(privateKey)
-```
+// RSA Public key string PEM
+ publicKeyString := sdk.RsaToPem(publicKey)
 
+// ECDSA private and public key PEMs
+ privatekeyStr, publicKeyString := sdk.EcdsaToPem(privateKey)
+```
 
 #### Onboarding a key and creating a transaction
 
@@ -73,19 +103,39 @@ Once you have a key generated, to use it to sign transactions it must be onboard
 ##### Example
 
 ```go
- txObject:=sdk.TxObject{Namespace:"default",Contract:"onboard",Input:input,Output:output,ReadOnly:readOnly}
-  tx,_:=json.Marshal(txObject)
-  //rsa
-  signedMessage,_:=sdk.RsaSign(*privatekey,[]byte(tx))
-  //ecdsa
+ txObject := sdk.TxObject {
+   Namespace: "default",
+   Contract: "onboard",
+   Input: input,
+   Output: output,
+   ReadOnly: readOnly,
+  }
+
+  tx, _ := json.Marshal(txObject)
+
+  // RSA
+  signedMessage,_ := sdk.RsaSign(*privatekey, []byte(tx))
+
+  // ECDSA (Elliptic curve)
   pemPrivate := sdk.EcdsaFromPem(privatekeyStr)
   signedMessage := sdk.EcdsaSign(pemPrivate,string(tx))
-  
-  signature["identity"]=signedMessage
-  selfsign:=true
-  transaction:=sdk.Transaction{TxObject:txObject,SelfSign:selfsign,Signature:signature}
-  sdk.SetUrl(sdk.Connection{Scheme:"protocol",Url:"url",Port:"port"})
-  sdk.SendTransaction(transaction,sdk.GetUrl())
+
+  signature["identity"] = signedMessage
+  selfsign := true
+  transaction := sdk.Transaction {
+    TxObject: txObject,
+    SelfSign: selfsign,
+    Signature:signature,
+  }
+
+  sdk.SetUrl(sdk.Connection {
+    Scheme:"protocol",
+    Url:"url",
+    Port:"port"
+  })
+
+  // Response contains Code (int) and Desc (string)
+  response := sdk.SendTransaction(transaction, sdk.GetUrl())
 ```
 
 ---
@@ -95,7 +145,6 @@ Once you have a key generated, to use it to sign transactions it must be onboard
 When signing a transaction you must send the finished version of it. No changes can be made after signing as this will cause the ledger to reject it.
 
 The key must be one that has been successfully onboarded to the ledger which the transaction is being sent to.
-
 
 ## Events Subscription
 
@@ -112,6 +161,7 @@ They all return events which can then be used by developers.
 ## ActivityStreams
 
 SDK also contains helper functions to get and search streams from Activeledger.
+
 - GetActivityStreams(host, ids) // host=protocol://ip:port
 - GetActivityStream(host, id)
 - GetActivityStreamVolatile(host, id)
@@ -123,11 +173,8 @@ SDK also contains helper functions to get and search streams from Activeledger.
 
 They all return map[string]interface{}.
 
-
 ## License
 
 ---
 
 This project is licensed under the [MIT](https://github.com/activeledger/SDK-Golang/blob/master/LICENSE) License
-
-

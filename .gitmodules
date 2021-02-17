@@ -1,6 +1,0 @@
-[submodule "sseclient"]
-	path = sseclient
-	url = ./sseclient
-[submodule "bitcoin-crypto"]
-	path = bitcoin-crypto
-	url = ./bitcoin-crypto

@@ -24,9 +24,10 @@
 package sdk
 
 import (
-	"app/sseclient"
 	"log"
 	"net/url"
+
+	"github.com/peterhellberg/sseclient"
 )
 
 func Subscribe(host string) (chan sseclient.Event, error) {

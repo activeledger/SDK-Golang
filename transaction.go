@@ -23,13 +23,14 @@
 package sdk
 
 import (
-	"app/bitcoin-crypto/bitecdsa"
 	"bytes"
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/titanous/bitcoin-crypto/bitecdsa"
 )
 
 //Encryption enum

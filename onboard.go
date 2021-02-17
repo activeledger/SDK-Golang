@@ -1,9 +1,10 @@
 package sdk
 
 import (
-	"app/bitcoin-crypto/bitecdsa"
 	"crypto/rsa"
 	"encoding/json"
+
+	"github.com/titanous/bitcoin-crypto/bitecdsa"
 )
 
 func onboardRSA(keyPair *rsa.PrivateKey, encryption Encryption, keyname string) Response {

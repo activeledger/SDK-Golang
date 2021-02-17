@@ -23,8 +23,8 @@
 package sdk
 
 import (
-	"app/bitcoin-crypto/bitecdsa"
-	"app/bitcoin-crypto/bitelliptic"
+	"github.com/titanous/bitcoin-crypto/bitecdsa"
+	"github.com/titanous/bitcoin-crypto/bitelliptic"
 
 	"crypto/rand"
 	"crypto/sha256"

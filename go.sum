@@ -1,0 +1,4 @@
+github.com/peterhellberg/sseclient v0.0.0-20190910165922-d1094337c01e h1:gVPUGaTe6s0Lqsn3UTx8x1Ey7y9QVLGB1Lb6wrXF6mI=
+github.com/peterhellberg/sseclient v0.0.0-20190910165922-d1094337c01e/go.mod h1:lu81MbD7/ET18Dqz3zc6EQNA3+BrrMA2tf1VBn9E4qU=
+github.com/titanous/bitcoin-crypto v0.0.0-20121127183713-5eeb3a67e50a h1:hnEC5dS5RD9M4r+lyqoFPHp4QRy67k6UwkFDLLbD/n0=
+github.com/titanous/bitcoin-crypto v0.0.0-20121127183713-5eeb3a67e50a/go.mod h1:SzeyN4fMyzWWOwc/2CWr0Rz8jePdOWqAIfq5WKgXjqo=

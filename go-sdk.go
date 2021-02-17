@@ -23,10 +23,11 @@
 package sdk
 
 import (
-	"app/bitcoin-crypto/bitecdsa"
 	"crypto/rsa"
 	"fmt"
 	"os"
+
+	"github.com/titanous/bitcoin-crypto/bitecdsa"
 )
 
 var (

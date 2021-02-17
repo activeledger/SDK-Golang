@@ -14,9 +14,10 @@ package bitecdsa
 //     http://www.secg.org/download/aid-780/sec1-v2.pdf
 
 import (
-	"app/bitcoin-crypto/bitelliptic"
 	"io"
 	"math/big"
+
+	"github.com/titanous/bitcoin-crypto/bitelliptic"
 )
 
 // PublicKey represents an ECDSA public key.
