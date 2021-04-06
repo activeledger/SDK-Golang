@@ -7,7 +7,7 @@ import (
 	"github.com/titanous/bitcoin-crypto/bitecdsa"
 )
 
-func onboardRSA(keyPair *rsa.PrivateKey, encryption Encryption, keyname string) Response {
+func onboardRSA(keyPair *rsa.PrivateKey, encryption Encryption, keyname string) (Response, error) {
 
 	var tx = new(Transaction)
 	tx.TxObject.Contract = "onboard"
@@ -30,15 +30,19 @@ func onboardRSA(keyPair *rsa.PrivateKey, encryption Encryption, keyname string) 
 	tx.Signature = sig
 	//ll, _ := json.Marshal(tx)
 
-	resp := SendTransaction(*tx, GetUrl())
+	resp, errResp := SendTransaction(*tx, GetUrl())
+	if errResp != nil {
+		return Response{}, errResp
+	}
+
 	if resp.Code == 200 {
 		Stream = resp.Desc // storing stream id in local storage
 		KeyName = keyname
 	}
-	return resp
+	return resp, nil
 }
 
-func onboardEC(keyPair *bitecdsa.PrivateKey, encryption Encryption, keyname string) Response {
+func onboardEC(keyPair *bitecdsa.PrivateKey, encryption Encryption, keyname string) (Response, error) {
 
 	var tx = new(Transaction)
 	tx.TxObject.Contract = "onboard"
@@ -57,10 +61,15 @@ func onboardEC(keyPair *bitecdsa.PrivateKey, encryption Encryption, keyname stri
 	sign := EcdsaSign(keyPair, string(b))
 	sig[keyname] = sign
 	tx.Signature = sig
-	resp := SendTransaction(*tx, GetUrl())
+	
+	resp, errResp := SendTransaction(*tx, GetUrl())
+	if errResp != nil {
+		return Response{}, errResp
+	}
+
 	if resp.Code == 200 {
 		Stream = resp.Desc // storing stream id in local storage
 		KeyName = keyname
 	}
-	return resp
+	return resp, nil
 }

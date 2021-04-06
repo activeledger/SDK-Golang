@@ -88,24 +88,36 @@ func (encrp Encryption) String() string { return Encrptype[encrp] }
 
 //SendTransaction function sends complete transaction the activeledger network.
 //input: transaction,url
-func SendTransaction(transaction Transaction, url string) Response {
+func SendTransaction(transaction Transaction, url string) (Response, error) {
 
-	sendtr, _ := json.Marshal(transaction)
-	//checkError(err)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(sendtr))
-	checkError(err)
+	sendTx, errJsn := json.Marshal(transaction)
+
+	if errJsn != nil {
+		return Response{}, errJsn
+	}
+
+	req, errReq := http.NewRequest("POST", url, bytes.NewBuffer(sendTx))
+	if errReq != nil {
+		return Response{}, errReq
+	}
+	
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	resp, err := client.Do(req)
-	checkError(err)
+	resp, errDo := client.Do(req)
+	if errDo != nil {
+		return Response{}, errDo
+	}
 
 	defer resp.Body.Close()
 
 	txResp, _ := ioutil.ReadAll(resp.Body)
 	//r := Response{}
 	r := make(map[string]interface{})
-	err = json.Unmarshal(txResp, &r)
+
+	if errUnmar := json.Unmarshal(txResp, &r); errUnmar != nil {
+		return Response{}, errUnmar
+	}
 
 	response := Response{}
 	if r["$streams"] != nil {
@@ -114,20 +126,21 @@ func SendTransaction(transaction Transaction, url string) Response {
 			response.Code = 200
 			response.Desc = (fmt.Sprintf("%v", r["$streams"].(map[string]interface{})["new"].([]interface{})[0].(map[string]interface{})["id"]))
 
-			return response
+			return response, nil
 		}
 		response.Code = 200
 		response.Desc = (fmt.Sprintf("%v", r["$streams"].(map[string]interface{})["updated"].([]interface{})[0].(map[string]interface{})["id"]))
 
-		return response
+		return response, nil
 	}
 	response.Code = 400
 	response.Desc = (fmt.Sprintf("%v", r["$summary"].(map[string]interface{})["errors"].([]interface{})[0]))
 
-	return response
+	return response, nil
 }
 
-//CreateTransaction function create a transaction object and returns it to User. This function is for when user need to add multiple signature to the sigs object.
+// CreateTransaction function create a transaction object and returns it to User. 
+// This function is for when user need to add multiple signature to the sigs object.
 func CreateTransaction(txReq TransactionReq) *Transaction {
 	temp := make(map[string]interface{})
 	sig := make(map[string]interface{})
@@ -164,16 +177,9 @@ func CreateTransaction(txReq TransactionReq) *Transaction {
 }
 
 //CreateAndSendTransaction  function creates and sends the transaction to acitveledger. Send the Response object back to user
-func CreateAndSendTransaction(txReq TransactionReq) Response {
+func CreateAndSendTransaction(txReq TransactionReq) (Response, error) {
 
-	var tx = new(Transaction)
-	if txReq.KeyType == Encrptype[RSA] {
-
-		tx = CreateTransaction(txReq)
-	} else {
-		tx = CreateTransaction(txReq)
-	}
-
+	var tx = CreateTransaction(txReq)
 	return SendTransaction(*tx, GetUrl())
 
 }
