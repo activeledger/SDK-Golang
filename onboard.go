@@ -35,8 +35,8 @@ func onboardRSA(keyPair *rsa.PrivateKey, encryption Encryption, keyname string) 
 		return Response{}, errResp
 	}
 
-	if resp.Code == 200 {
-		Stream = resp.Desc // storing stream id in local storage
+	if len(resp.Streams.New) > 0 {
+		Stream = resp.Streams.New[0].ID // storing stream id in local storage
 		KeyName = keyname
 	}
 	return resp, nil
@@ -67,8 +67,8 @@ func onboardEC(keyPair *bitecdsa.PrivateKey, encryption Encryption, keyname stri
 		return Response{}, errResp
 	}
 
-	if resp.Code == 200 {
-		Stream = resp.Desc // storing stream id in local storage
+	if len(resp.Streams.New) > 0 {
+		Stream = resp.Streams.New[0].ID // storing stream id in local storage
 		KeyName = keyname
 	}
 	return resp, nil

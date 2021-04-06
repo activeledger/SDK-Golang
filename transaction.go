@@ -26,7 +26,7 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -68,8 +68,28 @@ type TxObject struct {
 
 //Response Object to store activeledger response
 type Response struct {
-	Code int
-	Desc string
+	UMID 						string 				`json:"$umid"`
+	Summary 				Summary 			`json:"$summary"`
+	Response 				[]interface{} `json:"$responses"`
+	Territoriality 	string 				`json:"$territoriality"`
+	Streams 				Streams 			`json:"$streams"`
+}
+
+type Summary struct {
+	Total 	int 			`json:"total"`
+	Vote 		int 			`json:"vote"`
+	Commit 	int 			`json:"commit"`
+	Errors	[]string 	`json:"errors"`
+}
+
+type Streams struct {
+	New 		[]StreamData `json:"new"`
+	Updated []StreamData `json:"updated"`
+}
+
+type StreamData struct {
+	ID 		string `json:"id"`
+	Name 	string `json:"name"`
 }
 
 //Response Object to store activeledger response
@@ -89,54 +109,42 @@ func (encrp Encryption) String() string { return Encrptype[encrp] }
 //SendTransaction function sends complete transaction the activeledger network.
 //input: transaction,url
 func SendTransaction(transaction Transaction, url string) (Response, error) {
+	respObj := Response{}
 
-	sendTx, errJsn := json.Marshal(transaction)
-
+	txStr, errJsn := json.Marshal(transaction)
 	if errJsn != nil {
-		return Response{}, errJsn
+		return respObj, errJsn
 	}
 
-	req, errReq := http.NewRequest("POST", url, bytes.NewBuffer(sendTx))
+	req, errReq := http.NewRequest("POST", url, bytes.NewBuffer(txStr))
 	if errReq != nil {
-		return Response{}, errReq
+		return respObj, errReq
 	}
 	
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	resp, errDo := client.Do(req)
+	httpResp, errDo := client.Do(req)
 	if errDo != nil {
-		return Response{}, errDo
+		return respObj, errDo
 	}
 
-	defer resp.Body.Close()
+	defer httpResp.Body.Close()
 
-	txResp, _ := ioutil.ReadAll(resp.Body)
-	//r := Response{}
-	r := make(map[string]interface{})
+	txResp, errRead := ioutil.ReadAll(httpResp.Body)
+	if errRead != nil {
+		return respObj, errRead
+	}
 
-	if errUnmar := json.Unmarshal(txResp, &r); errUnmar != nil {
+	if errUnmar := json.Unmarshal(txResp, &respObj); errUnmar != nil {
 		return Response{}, errUnmar
 	}
 
-	response := Response{}
-	if r["$streams"] != nil {
-		if r["$streams"].(map[string]interface{})["new"] != nil {
-
-			response.Code = 200
-			response.Desc = (fmt.Sprintf("%v", r["$streams"].(map[string]interface{})["new"].([]interface{})[0].(map[string]interface{})["id"]))
-
-			return response, nil
-		}
-		response.Code = 200
-		response.Desc = (fmt.Sprintf("%v", r["$streams"].(map[string]interface{})["updated"].([]interface{})[0].(map[string]interface{})["id"]))
-
-		return response, nil
+	if len(respObj.Summary.Errors) > 0 {
+		return respObj, errors.New("Activeledger error, see response.Summary.Errors")
 	}
-	response.Code = 400
-	response.Desc = (fmt.Sprintf("%v", r["$summary"].(map[string]interface{})["errors"].([]interface{})[0]))
 
-	return response, nil
+	return respObj, nil
 }
 
 // CreateTransaction function create a transaction object and returns it to User. 
