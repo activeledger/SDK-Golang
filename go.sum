@@ -1,8 +1,2 @@
-github.com/decred/dcrd/chaincfg/chainhash v1.0.2/go.mod h1:BpbrGgrPTr3YJYRN3Bm+D9NuaFd+zGyNeIKgrhCXK60=
-github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=
-github.com/decred/dcrd/dcrec/secp256k1/v3 v3.0.0 h1:sgNeV1VRMDzs6rzyPpxyM0jp317hnwiq58Filgag2xw=
-github.com/decred/dcrd/dcrec/secp256k1/v3 v3.0.0/go.mod h1:J70FGZSbzsjecRTiTzER+3f1KZLNaXkuv+yeFTKoxM8=
-github.com/peterhellberg/sseclient v0.0.0-20190910165922-d1094337c01e h1:gVPUGaTe6s0Lqsn3UTx8x1Ey7y9QVLGB1Lb6wrXF6mI=
-github.com/peterhellberg/sseclient v0.0.0-20190910165922-d1094337c01e/go.mod h1:lu81MbD7/ET18Dqz3zc6EQNA3+BrrMA2tf1VBn9E4qU=
-github.com/titanous/bitcoin-crypto v0.0.0-20121127183713-5eeb3a67e50a h1:hnEC5dS5RD9M4r+lyqoFPHp4QRy67k6UwkFDLLbD/n0=
-github.com/titanous/bitcoin-crypto v0.0.0-20121127183713-5eeb3a67e50a/go.mod h1:SzeyN4fMyzWWOwc/2CWr0Rz8jePdOWqAIfq5WKgXjqo=
+github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564 h1:I6KUy4CI6hHjqnyJLNCEi7YHVMkwwtfSr2k9splgdSM=
+github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564/go.mod h1:yekO+3ZShy19S+bsmnERmznGy9Rfg6dWWWpiGJjNAz8=

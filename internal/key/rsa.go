@@ -39,12 +39,12 @@ func GenerateRSA() (RSAHandler, error) {
 		return RSAKey{}, err
 	}
 
-	publicPem, err := publicToPem(k)
+	publicPem, err := publicToPemRSA(k)
 	if err != nil {
 		return RSAKey{}, err
 	}
 
-	privatePem := privateToPem(k)
+	privatePem := privateToPemRSA(k)
 
 	key.PrivateKey = k
 	key.PublicPEM = publicPem
@@ -69,7 +69,7 @@ func SetRSAKey(privatePEM string) (RSAHandler, error) {
 		return RSAKey{}, fmt.Errorf("parsing block data failed during private pem decode: %v", err)
 	}
 
-	pubPem, err := publicToPem(p)
+	pubPem, err := publicToPemRSA(p)
 	if err != nil {
 		return RSAKey{}, fmt.Errorf("encoding public key to pem failed: %v", err)
 	}
@@ -114,9 +114,23 @@ func (r RSAKey) Verify(signature []byte, checksum []byte) (bool, error) {
 	if err := rsa.VerifyPKCS1v15(&r.PrivateKey.PublicKey, crypto.SHA256, checksum, signature); err != nil {
 		return false, err
 	}
-	/* if err := rsa.VerifyPSS(&r.PrivateKey.PublicKey, crypto.SHA256, checksum, signature, nil); err != nil {
+
+	return true, nil
+}
+
+// VerifyUsingRSAPem - Verify a signature using a public key PEM
+func VerifyUsingRSAPem(signature []byte, checksum []byte, pubPem string) (bool, error) {
+
+	block, _ := pem.Decode([]byte(pubPem))
+	k, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
 		return false, err
-	} */
+	}
+	key := k.(*rsa.PublicKey)
+
+	if err := rsa.VerifyPKCS1v15(key, crypto.SHA256, checksum, signature); err != nil {
+		return false, err
+	}
 
 	return true, nil
 }
@@ -131,7 +145,7 @@ func (r RSAKey) GetPublicPEM() string {
 	return r.PublicPEM
 }
 
-func publicToPem(k *rsa.PrivateKey) (string, error) {
+func publicToPemRSA(k *rsa.PrivateKey) (string, error) {
 	pubBytes, err := x509.MarshalPKIXPublicKey(&k.PublicKey)
 	if err != nil {
 		return "", err
@@ -147,7 +161,7 @@ func publicToPem(k *rsa.PrivateKey) (string, error) {
 	return string(pubKeyPem), nil
 }
 
-func privateToPem(k *rsa.PrivateKey) string {
+func privateToPemRSA(k *rsa.PrivateKey) string {
 	bytes := x509.MarshalPKCS1PrivateKey(k)
 
 	pem := pem.EncodeToMemory(
