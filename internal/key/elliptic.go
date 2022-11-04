@@ -1,6 +1,5 @@
 package key
 
-// ! TODO: Implement and test based on this package: https://github.com/dustinxie/ecc
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -8,11 +7,9 @@ import (
 	"crypto/sha256"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 
 	"github.com/activeledger/SDK-Golang/v2/internal/alerror"
@@ -169,36 +166,27 @@ func VerifyUsingECCPem(signature []byte, checksum []byte, pubPem string) (bool, 
 		return false, fmt.Errorf("could not decode PEM, block type %s", block.Type)
 	}
 
-	pubKey := ecdsa.PublicKey{
-		Curve: ecc.P256k1(),
-	}
+	var kAlgo pkix.AlgorithmIdentifier
+	kAlgo.Algorithm = oid
 
-	pks, _ := hex.DecodeString(pubPem)
-
-	pubKey.X, pubKey.Y = elliptic.Unmarshal(ecc.P256k1(), pks[1:1+int(pks[1])])
-
-	newPem, err := publicToPemECC(&pubKey)
+	var paramBytes []byte
+	paramBytes, err := asn1.Marshal(oid)
 	if err != nil {
 		return false, err
 	}
 
-	log.Println("newPem")
-	log.Println(newPem)
-	log.Println("pubPem")
-	log.Println(pubPem)
-	/*
-		pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-		if err != nil {
-			return false, err
-		}
+	var pkixKey = pkixPublicKey{}
+	if _, err := asn1.UnmarshalWithParams(block.Bytes, &pkixKey, string(paramBytes)); err != nil {
+		return false, err
+	}
 
-		ecdsaPub, ok := pub.(*ecdsa.PublicKey)
-		if !ok {
-			return false, errors.New("data is not an ecdsa public key")
-		}
-	*/
+	var pubKey = ecdsa.PublicKey{
+		Curve: ecc.P256k1(),
+	}
+
+	pubKey.X, pubKey.Y = elliptic.Unmarshal(ecc.P256k1(), pkixKey.BitString.Bytes)
+
 	return ecc.VerifyBytes(&pubKey, checksum[:], signature, ecc.Normal), nil
-	//return false, nil
 }
 
 func (e ECCKey) Verify(signature []byte, checksum []byte) bool {
