@@ -13,7 +13,7 @@ The Activeledger Golang SDK has been built to provide an easy way to connect you
 ## Installation
 
 ```sh
-go get github.com/activeledger/SDK-Golang
+go get github.com/activeledger/SDK-Golang/v2
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ The SDK currently supports the following functionality
 
 ```go
 import (
-  sdk "github.com/activeledger/SDK-Golang"
+  alsdk "github.com/activeledger/SDK-Golang/v2"
 )
 ```
 
@@ -40,32 +40,36 @@ When sending a transaction, you must pass a connection that provides the informa
 To do this a connection object must be created. This object must be passed the protocol, address, and port.
 
 ```go
-connection := sdk.Connection {
-  Scheme:"protocol",
-  Url:"url",
-  Port:"port"
-}
+address := "localhost"
+port := "2560"
 
-sdk.SetUrl(connection)
+connection := alsdk.NewConnection(alsdk.HTTP, {address}, {port})
 ```
 
 #### Example - Connecting to the Activeledger public testnet
 
 ```go
-connection := sdk.Connection {
-  Scheme:"http",
-  Url:"testnet-uk.activeledger.io",
-  Port:"5260"
-}
+address := "localhost"
+port := "2560"
 
-sdk.SetUrl(connection)
+connection := alsdk.NewConnection(alsdk.HTTP, address, port)
 ```
+
+NewConnection() returns a Connection{} object which looks like this:
+```go
+type Connection struct {
+	Protocol Protocol
+	Url      string
+	Port     string
+}
+```
+Later this is passed to the `Send()` function and used to connect to the given node. 
 
 ---
 
 ### Key
 
-There are two key types that can be generated currently, more are planned and will be implemented into Activeledger first. These types are RSA and Elliptic Curve.
+Activeledger uses RSA and Elliptic Curve keys. Currently EC is only partialy implemented in this SDK. RSA is fully implemented.
 
 #### Generating a key
 
@@ -74,14 +78,7 @@ There are two key types that can be generated currently, more are planned and wi
 ```go
 // RSA
 // Generate the private key
-privatekey := sdk.RsaKeyGen()
-// Get the public key from the private key
-publicKey := privatekey.PublicKey
-
-// ECDSA
-privateKey, _ := sdk.EcdsaKeyGen()
-
-// See key exporting to get ECDSA Public key
+keyHandler := alsdk.GenerateRSA()
 ```
 
 #### Exporting Key
@@ -90,10 +87,7 @@ privateKey, _ := sdk.EcdsaKeyGen()
 
 ```go
 // RSA Public key string PEM
- publicKeyString := sdk.RsaToPem(publicKey)
-
-// ECDSA private and public key PEMs
- privatekeyStr, publicKeyString := sdk.EcdsaToPem(privateKey)
+publicKey := keyHandler.GetPublicPem()
 ```
 
 #### Onboarding a key and creating a transaction
@@ -101,48 +95,86 @@ privateKey, _ := sdk.EcdsaKeyGen()
 Once you have a key generated, to use it to sign transactions it must be onboarded to the ledger network
 
 ##### Example
-
 ```go
- txObject := sdk.TxObject {
-   Namespace: "default",
-   Contract: "onboard",
-   Input: input,
-   Output: output,
-   ReadOnly: readOnly,
-  }
+// The identity of the stream
+streamId := "someidentity"
 
-  tx, _ := json.Marshal(txObject)
+// Create a new RSA key handler
+keyHandler, err := alsdk.GenerateRSA()
+if err != nil {// ... }
 
-  // RSA
-  signedMessage,_ := sdk.RsaSign(*privatekey, []byte(tx))
+// Convert our stream ID to a StreamID struct
+alStreamId := alsdk.StreamID(streamId)
 
-  // ECDSA (Elliptic curve)
-  pemPrivate := sdk.EcdsaFromPem(privatekeyStr)
-  signedMessage := sdk.EcdsaSign(pemPrivate,string(tx))
+// Create a new instance of the DataWrapper to hold the Tx input data
+input := alsdk.DataWrapper{
+	"type":      "rsa",
+	"publicKey": keyHandler.GetPublicPEM(),
+}
 
-  signature["identity"] = signedMessage
-  selfsign := true
-  transaction := sdk.Transaction {
-    TxObject: txObject,
-    SelfSign: selfsign,
-    Signature:signature,
-  }
+// Use our previously created data to create an object of transaction objects
+// which will be used to build the transaction
+txOpts := alsdk.TransactionOpts{
+	StreamID:  alStreamId,
+	Contract:  "onboard",
+	Namespace: "namespace",
+	Input:     input,
+	SelfSign:  true,
+	Key:       keyHandler,
+}
 
-  sdk.SetUrl(sdk.Connection {
-    Scheme:"protocol",
-    Url:"url",
-    Port:"port"
-  })
+// Build transaction returns the following:
+// txHandler - This handles making modifications to the tx we have just built
+// hash      - The checksum hash generated when signing the transaction, 
+//              you can use this to perform validity checks
+txHandler, hash, err := alsdk.BuildTransaction(txOpts)
+if err != nil {// ... }
 
-  // Response contains Code (int) and Desc (string)
-  response := sdk.SendTransaction(transaction, sdk.GetUrl())
+// Get the transaction object
+tx := txHandler.GetTransaction()
+
+// Send the transaction to the network and receive the Activeledger response data
+resp, err := alsdk.Send(tx, l.conn)
+if err != nil {// ... }
+```
+
+The `resp` returns the following structs
+```go
+// Holds the response data from Activeledger
+type Response struct {
+	UMID           string        `json:"$umid"`
+	Summary        Summary       `json:"$summary"`
+	Response       []interface{} `json:"$responses"`
+	Territoriality string        `json:"$territoriality"`
+	Streams        Streams       `json:"$streams"`
+}
+
+// Summary structure in Response
+type Summary struct {
+	Total  int      `json:"total"`
+	Vote   int      `json:"vote"`
+	Commit int      `json:"commit"`
+	Errors []string `json:"errors"`
+}
+
+// Streams structure in Response
+type Streams struct {
+	New     []StreamData `json:"new"`
+	Updated []StreamData `json:"updated"`
+}
+
+// Stream data structure in Streams
+type StreamData struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
 ```
 
 ---
 
 #### Signing & sending a transaction
 
-When signing a transaction you must send the finished version of it. No changes can be made after signing as this will cause the ledger to reject it.
+When signing a transaction you must send the finished version of it. No changes can be made after signing as this will cause the ledger to reject it as the signature will no longer be valid.
 
 The key must be one that has been successfully onboarded to the ledger which the transaction is being sent to.
 

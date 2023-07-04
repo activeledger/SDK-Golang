@@ -7,56 +7,59 @@ import (
 )
 
 type StreamID string
-type DataWrapper map[StreamID]interface{}
+type StreamIDWrapper map[StreamID]interface{}
+type DataWrapper map[string]interface{}
 
 type TransactionHandler interface {
 	Sign(Key KeyHandler, ID StreamID) error
 	SetInput(ID StreamID, Input map[string]interface{})
 	SetOutput(ID StreamID, Output map[string]interface{})
 	SetReadonly(ID StreamID, ReadOnly map[string]interface{})
-	GetTransaction() *Transaction
+	GetTransaction() Transaction
 }
 
 type Transaction struct {
-	Territoriality string      `json:"$territoriality,omitempty"`
-	Transaction    TxBody      `json:"$tx"`
-	SelfSign       bool        `json:"$selfsign"`
-	Signature      DataWrapper `json:"$sigs"`
+	Territoriality string          `json:"$territoriality,omitempty"`
+	Transaction    TxBody          `json:"$tx"`
+	SelfSign       bool            `json:"$selfsign"`
+	Signature      StreamIDWrapper `json:"$sigs"`
 }
 
 type TxBody struct {
-	Namespace string      `json:"$namespace"`
-	Contract  string      `json:"$contract"`
-	Entry     string      `json:"$entry,omitempty"`
-	Input     DataWrapper `json:"$i"`
-	Output    DataWrapper `json:"$o,omitempty"`
-	ReadOnly  DataWrapper `json:"$t,omitempty"`
+	Namespace string          `json:"$namespace"`
+	Contract  string          `json:"$contract"`
+	Entry     string          `json:"$entry,omitempty"`
+	Input     StreamIDWrapper `json:"$i"`
+	Output    StreamIDWrapper `json:"$o,omitempty"`
+	ReadOnly  StreamIDWrapper `json:"$t,omitempty"`
 }
 
 type TransactionOpts struct {
-	StreamID       StreamID
-	Key            KeyHandler
-	Namespace      string
-	Contract       string
-	Entry          string
-	SelfSign       bool
-	Territoriality string
-	Input          DataWrapper
-	Output         DataWrapper
-	ReadOnly       DataWrapper
+	StreamID         StreamID
+	OutputStreamID   StreamID
+	ReadOnlyStreamID StreamID
+	Key              KeyHandler
+	Namespace        string
+	Contract         string
+	Entry            string
+	SelfSign         bool
+	Territoriality   string
+	Input            DataWrapper
+	Output           DataWrapper
+	ReadOnly         DataWrapper
 }
 
 var (
 	ErrNoStreamID error = errors.New("stream id not given")
 )
 
-func (t *Transaction) GetTransaction() *Transaction {
+func (t Transaction) GetTransaction() Transaction {
 	return t
 }
 
 // Sign - Sign a transaction
 func (t *Transaction) Sign(key KeyHandler, id StreamID) error {
-	sigWrap := make(DataWrapper)
+	sigWrap := make(StreamIDWrapper)
 
 	toSign, err := json.Marshal(t.Transaction)
 	if err != nil {
@@ -116,18 +119,33 @@ func BuildTransaction(o TransactionOpts) (Tx TransactionHandler, Hash []byte, TX
 	}
 
 	if o.Input != nil {
-		txBody.Input = make(DataWrapper)
+		txBody.Input = make(StreamIDWrapper)
 		txBody.Input[o.StreamID] = o.Input
 	}
 
 	if o.Output != nil {
-		txBody.Output = make(DataWrapper)
-		txBody.Output[o.StreamID] = o.Output
+		txBody.Output = make(StreamIDWrapper)
+
+		// If OutputStreamID not provided assume StreamID
+		outStreamId := o.StreamID
+
+		if o.OutputStreamID != "" {
+			outStreamId = o.OutputStreamID
+		}
+
+		txBody.Output[outStreamId] = o.Output
 	}
 
 	if o.ReadOnly != nil {
-		txBody.ReadOnly = make(DataWrapper)
-		txBody.ReadOnly[o.StreamID] = o.ReadOnly
+		txBody.ReadOnly = make(StreamIDWrapper)
+
+		readStreamId := o.StreamID
+
+		if o.ReadOnlyStreamID != "" {
+			readStreamId = o.ReadOnlyStreamID
+		}
+
+		txBody.ReadOnly[readStreamId] = o.ReadOnly
 	}
 
 	t.Transaction = txBody
@@ -142,7 +160,7 @@ func BuildTransaction(o TransactionOpts) (Tx TransactionHandler, Hash []byte, TX
 		return &Transaction{}, []byte{}, nil
 	}
 
-	sigWrap := make(DataWrapper)
+	sigWrap := make(StreamIDWrapper)
 	sigWrap[o.StreamID] = sig
 	t.Signature = sigWrap
 

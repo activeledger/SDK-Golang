@@ -18,8 +18,8 @@ const (
 	HTTPS Protocol = "https"
 )
 
-// CreateConnection - Create a new connection
-func CreateConnection(protocol Protocol, url string, port string) Connection {
+// NewConnection - Create a new connection
+func NewConnection(protocol Protocol, url string, port string) Connection {
 	var c = Connection{
 		Protocol: protocol,
 		Url:      url,
