@@ -57,7 +57,7 @@ func OnboardTransaction(signer Signer, label string) (*Transaction, error) {
 		Set("$contract", "onboard").
 		Set("$i", NewObject().Set(label, NewObject().
 			Set("type", string(signer.KeyType())).
-			Set("publicKey", signer.PublicKeyB64()))).
+			Set("publicKey", signer.PublicKey()))).
 		Set("$o", NewObject())
 
 	message, err := CanonicalBytes(body)

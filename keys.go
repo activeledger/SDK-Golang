@@ -46,6 +46,37 @@ var ErrFalconUnsupported = fmt.Errorf(
 // this SDK needing to know about it.
 type Signer interface {
 	KeyType() KeyType
-	PublicKeyB64() string
+
+	// PublicKey is the string the ledger stores, in whatever encoding the
+	// scheme uses: base64 for the post-quantum keys, 0x-prefixed hex for
+	// secp256k1. Whatever this returns goes into the transaction verbatim,
+	// which is why it is not named for one encoding.
+	PublicKey() string
+
 	Sign(message []byte) ([]byte, error)
+}
+
+// ParseKeyType converts a wire string, rejecting anything unrecognised.
+//
+// Deliberately strict and case-sensitive: the ledger compares these exactly,
+// so accepting "ML-DSA-65" here would only move the failure somewhere less
+// informative.
+//
+// "bitcoin" and "ethereum" parse as secp256k1, because the ledger routes them
+// to identical verification and an existing identity may already carry
+// either. They are never emitted: KeyTypeSecp256k1 always writes "secp256k1".
+func ParseKeyType(wire string) (KeyType, error) {
+	switch wire {
+	case string(KeyTypeRSA):
+		return KeyTypeRSA, nil
+	case string(KeyTypeSecp256k1), "bitcoin", "ethereum":
+		return KeyTypeSecp256k1, nil
+	case string(KeyTypeMLDSA65):
+		return KeyTypeMLDSA65, nil
+	case string(KeyTypeFalcon512):
+		return KeyTypeFalcon512, nil
+	default:
+		return "", fmt.Errorf(
+			"unknown key type %q - expected rsa, secp256k1, ml-dsa-65 or falcon-512", wire)
+	}
 }
