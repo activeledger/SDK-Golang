@@ -1,193 +1,178 @@
-/*
- * MIT License (MIT)
- * Copyright (c) 2018
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-package sdk
+package activeledger
 
 import (
-	"bytes"
-	"crypto/rsa"
-	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"net/http"
-
-	"github.com/titanous/bitcoin-crypto/bitecdsa"
+	"encoding/base64"
+	"fmt"
 )
 
-//Encryption enum
-type Encryption int
-
-//Types of Encryption
-const (
-	RSA = iota
-	EC
-)
-
-//Encrptype stores types of Encryption available
-var Encrptype = [...]string{
-	"rsa",
-	"secp256k1",
-}
-
-//Transaction elements
+// Transaction is a signed transaction, ready to submit.
+//
+// Body is the $tx object. Sigs maps a signer label to a base64 signature over
+// the canonical bytes of Body and NOTHING ELSE -- not the envelope, not a
+// hash of it, not a length-prefixed form.
 type Transaction struct {
-	Territoriality string                 `json:"$territoriality,omitempty"`
-	TxObject       TxObject               `json:"$tx"`
-	SelfSign       bool                   `json:"$selfsign"`
-	Signature      map[string]interface{} `json:"$sigs"`
+	Body     *Object
+	Sigs     map[string]string
+	SelfSign bool
+
+	sigOrder []string
 }
 
-// TxObject within a transaction
-type TxObject struct {
-	Namespace string                 `json:"$namespace"`
-	Contract  string                 `json:"$contract"`
-	Entry     string                 `json:"$entry,omitempty"`
-	Input     map[string]interface{} `json:"$i"`
-	Output    map[string]interface{} `json:"$o,omitempty"`
-	ReadOnly  map[string]interface{} `json:"$r,omitempty"`
+// Envelope returns the full submittable document.
+func (t *Transaction) Envelope() *Object {
+	out := NewObject().Set("$tx", t.Body)
+	if t.SelfSign {
+		out.Set("$selfsign", true)
+	}
+	sigs := NewObject()
+	for _, label := range t.sigOrder {
+		sigs.Set(label, t.Sigs[label])
+	}
+	return out.Set("$sigs", sigs)
 }
 
-//Response Object to store activeledger response
-type Response struct {
-	UMID 						string 				`json:"$umid"`
-	Summary 				Summary 			`json:"$summary"`
-	Response 				[]interface{} `json:"$responses"`
-	Territoriality 	string 				`json:"$territoriality"`
-	Streams 				Streams 			`json:"$streams"`
+// JSON renders the envelope for submission.
+func (t *Transaction) JSON() (string, error) { return CanonicalJSON(t.Envelope()) }
+
+// SignedBytes returns the exact bytes that were signed. The fastest way to
+// diagnose a 1220.
+func (t *Transaction) SignedBytes() ([]byte, error) { return CanonicalBytes(t.Body) }
+
+// OnboardTransaction builds the onboarding transaction for a new identity.
+//
+// Two things here are the most common first failure in any port, so they
+// happen in one place rather than being left to a caller:
+//
+//   - $selfsign is true and $sigs is keyed by the $i LABEL ("identity"), not
+//     by a stream id. There is no stream yet.
+//   - type is always present. The ledger defaults a missing type to "rsa" and
+//     then attempts RSA verification against a base64 post-quantum blob,
+//     returning 1220 with nothing said about key types.
+func OnboardTransaction(signer Signer, label string) (*Transaction, error) {
+	if label == "" {
+		label = "identity"
+	}
+	body := NewObject().
+		Set("$namespace", "default").
+		Set("$contract", "onboard").
+		Set("$i", NewObject().Set(label, NewObject().
+			Set("type", string(signer.KeyType())).
+			Set("publicKey", signer.PublicKeyB64()))).
+		Set("$o", NewObject())
+
+	message, err := CanonicalBytes(body)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := signer.Sign(message)
+	if err != nil {
+		return nil, fmt.Errorf("signing onboard transaction: %w", err)
+	}
+	return &Transaction{
+		Body:     body,
+		Sigs:     map[string]string{label: base64.StdEncoding.EncodeToString(signature)},
+		SelfSign: true,
+		sigOrder: []string{label},
+	}, nil
 }
 
-type Summary struct {
-	Total 	int 			`json:"total"`
-	Vote 		int 			`json:"vote"`
-	Commit 	int 			`json:"commit"`
-	Errors	[]string 	`json:"errors"`
+// Builder builds an ordinary transaction.
+//
+// Insertion order is preserved throughout, because the ledger does not
+// canonicalise key order and the signature covers the order actually written.
+type Builder struct {
+	namespace string
+	contract  string
+	entry     string
+	inputs    *Object
+	outputs   *Object
+	readonly  *Object
+	signers   map[string]Signer
+	signOrder []string
 }
 
-type Streams struct {
-	New 		[]StreamData `json:"new"`
-	Updated []StreamData `json:"updated"`
+// NewBuilder starts a transaction.
+func NewBuilder() *Builder {
+	return &Builder{
+		inputs:   NewObject(),
+		outputs:  NewObject(),
+		readonly: NewObject(),
+		signers:  map[string]Signer{},
+	}
 }
 
-type StreamData struct {
-	ID 		string `json:"id"`
-	Name 	string `json:"name"`
+func (b *Builder) Namespace(v string) *Builder { b.namespace = v; return b }
+func (b *Builder) Contract(v string) *Builder  { b.contract = v; return b }
+func (b *Builder) Entry(v string) *Builder     { b.entry = v; return b }
+
+// Input adds an input stream, its signing key and any payload fields.
+func (b *Builder) Input(streamID string, signer Signer, payload *Object) *Builder {
+	if payload == nil {
+		payload = NewObject()
+	}
+	b.inputs.Set(streamID, payload)
+	if _, seen := b.signers[streamID]; !seen {
+		b.signOrder = append(b.signOrder, streamID)
+	}
+	b.signers[streamID] = signer
+	return b
 }
 
-//Response Object to store activeledger response
-type TransactionReq struct {
-	TxObject       TxObject
-	Territoriality string
-	SelfSign       bool
-	StreamID       string
-	KeyName        string
-	RsaKey         *rsa.PrivateKey
-	EcKey          *bitecdsa.PrivateKey
-	KeyType        string
+// Output adds an output stream and its payload.
+func (b *Builder) Output(streamID string, payload *Object) *Builder {
+	if payload == nil {
+		payload = NewObject()
+	}
+	b.outputs.Set(streamID, payload)
+	return b
 }
 
-func (encrp Encryption) String() string { return Encrptype[encrp] }
+// ReadOnly adds a stream to $r.
+//
+// This is how state is read from Activeledger. There is no separate read API:
+// a node's storage service listens only on its own host, so reading is a
+// transaction like anything else. The contract receives the named streams and
+// hands values back with returnToRemote, which arrive in Response.Responses.
+func (b *Builder) ReadOnly(label, streamID string) *Builder {
+	b.readonly.Set(label, streamID)
+	return b
+}
 
-//SendTransaction function sends complete transaction the activeledger network.
-//input: transaction,url
-func SendTransaction(transaction Transaction, url string) (Response, error) {
-	respObj := Response{}
-
-	txStr, errJsn := json.Marshal(transaction)
-	if errJsn != nil {
-		return respObj, errJsn
+// Build signs and returns the transaction.
+func (b *Builder) Build() (*Transaction, error) {
+	if b.namespace == "" {
+		return nil, fmt.Errorf("namespace is required")
+	}
+	if b.contract == "" {
+		return nil, fmt.Errorf("contract is required")
+	}
+	if len(b.signers) == 0 {
+		return nil, fmt.Errorf("at least one input with a signing key is required")
 	}
 
-	req, errReq := http.NewRequest("POST", url, bytes.NewBuffer(txStr))
-	if errReq != nil {
-		return respObj, errReq
+	body := NewObject()
+	if b.entry != "" {
+		body.Set("$entry", b.entry)
 	}
-	
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	httpResp, errDo := client.Do(req)
-	if errDo != nil {
-		return respObj, errDo
+	body.Set("$namespace", b.namespace).Set("$contract", b.contract).Set("$i", b.inputs)
+	if b.outputs.Len() > 0 {
+		body.Set("$o", b.outputs)
 	}
-
-	defer httpResp.Body.Close()
-
-	txResp, errRead := ioutil.ReadAll(httpResp.Body)
-	if errRead != nil {
-		return respObj, errRead
+	if b.readonly.Len() > 0 {
+		body.Set("$r", b.readonly)
 	}
 
-	if errUnmar := json.Unmarshal(txResp, &respObj); errUnmar != nil {
-		return Response{}, errUnmar
+	message, err := CanonicalBytes(body)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(respObj.Summary.Errors) > 0 {
-		return respObj, errors.New("Activeledger error, see response.Summary.Errors")
+	sigs := map[string]string{}
+	for _, label := range b.signOrder {
+		signature, err := b.signers[label].Sign(message)
+		if err != nil {
+			return nil, fmt.Errorf("signing for %s: %w", label, err)
+		}
+		sigs[label] = base64.StdEncoding.EncodeToString(signature)
 	}
-
-	return respObj, nil
-}
-
-// CreateTransaction function create a transaction object and returns it to User. 
-// This function is for when user need to add multiple signature to the sigs object.
-func CreateTransaction(txReq TransactionReq) *Transaction {
-	temp := make(map[string]interface{})
-	sig := make(map[string]interface{})
-
-	tempMap := make(map[string]interface{})
-	tempMap[txReq.KeyName] = nil
-
-	m := txReq.TxObject.Input[txReq.StreamID].(map[string]interface{})
-	m["$stream"] = txReq.StreamID
-	temp[txReq.KeyName] = m
-
-	txReq.TxObject.Input = temp
-
-	txObjectByte, _ := json.Marshal(txReq.TxObject)
-	if txReq.KeyType == Encrptype[RSA] {
-
-		sign, _ := RsaSign(*txReq.RsaKey, txObjectByte)
-		sig[txReq.StreamID] = sign
-
-	} else {
-
-		sign := EcdsaSign(txReq.EcKey, string(txObjectByte))
-		sig[txReq.StreamID] = sign
-	}
-
-	var tx = new(Transaction)
-	tx.TxObject = txReq.TxObject
-	tx.Signature = sig
-	tx.SelfSign = txReq.SelfSign
-	tx.Territoriality = txReq.Territoriality
-	//st, _ := json.Marshal(tx)
-	return tx
-
-}
-
-//CreateAndSendTransaction  function creates and sends the transaction to acitveledger. Send the Response object back to user
-func CreateAndSendTransaction(txReq TransactionReq) (Response, error) {
-
-	var tx = CreateTransaction(txReq)
-	return SendTransaction(*tx, GetUrl())
-
+	return &Transaction{Body: body, Sigs: sigs, sigOrder: b.signOrder}, nil
 }
