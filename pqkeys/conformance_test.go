@@ -77,7 +77,7 @@ func TestRoundTripsPublishedKeysWithoutReDeriving(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", v.MessageName, err)
 		}
-		if got := kp.PublicKeyB64(); got != v.PublicKey {
+		if got := kp.PublicKey(); got != v.PublicKey {
 			t.Errorf("%s: public key did not round-trip", v.MessageName)
 		}
 		priv, err := kp.PrivateKeyB64()
@@ -119,7 +119,7 @@ func TestSignatureAndKeySizesMatchTheLedger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(decode(t, kp.PublicKeyB64())); n != 1952 {
+	if n := len(decode(t, kp.PublicKey())); n != 1952 {
 		t.Errorf("generated public key was %d bytes", n)
 	}
 	priv, _ := kp.PrivateKeyB64()

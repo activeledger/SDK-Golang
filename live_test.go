@@ -14,6 +14,7 @@ import (
 	"time"
 
 	activeledger "github.com/activeledger/SDK-Golang"
+	"github.com/activeledger/SDK-Golang/eckeys"
 	"github.com/activeledger/SDK-Golang/pqkeys"
 )
 
@@ -130,6 +131,99 @@ func TestLiveIdentityOnboardsAndIsRecordedCorrectly(t *testing.T) {
 	if len(public) != pqkeys.PublicKeySize {
 		t.Errorf("public key on the ledger was %d bytes, want %d",
 			len(public), pqkeys.PublicKeySize)
+	}
+}
+
+// secp256k1 identities, in both public key forms.
+//
+// The ledger accepts either and tells them apart by length, so onboarding
+// only ever with the compressed form would leave the other path unproven.
+func TestLiveSecp256k1IdentityOnboardsAndIsRecordedCorrectly(t *testing.T) {
+	urls := nodes(t)
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		compressed    bool
+		expectedChars int
+	}{{true, 68}, {false, 132}} {
+		client := activeledger.NewClient(urls[0])
+
+		key, err := eckeys.GenerateWith(tc.compressed)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		identity, err := client.Onboard(ctx, key)
+		if err != nil {
+			t.Fatalf("onboard: %v", err)
+		}
+
+		var authorities []interface{}
+		deadline := time.Now().Add(15 * time.Second)
+		for time.Now().Before(deadline) {
+			meta := storageRead(t, 0, identity.StreamID+":stream")
+			if a, ok := meta["authorities"].([]interface{}); ok && len(a) > 0 {
+				authorities = a
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		if len(authorities) == 0 {
+			t.Fatal("identity meta never appeared")
+		}
+
+		authority := authorities[0].(map[string]interface{})
+		if got := authority["type"]; got != "secp256k1" {
+			t.Errorf("authority type on the ledger was %v", got)
+		}
+
+		// Stored as 0x-prefixed hex, NOT base64. If this ever comes back
+		// base64 the SDK has encoded it the post-quantum way, and every later
+		// signature fails as 1220.
+		stored, _ := authority["public"].(string)
+		if !strings.HasPrefix(stored, "0x") {
+			t.Errorf("the ledger stored %q, which is not 0x hex", stored)
+		}
+		if len(stored) != tc.expectedChars {
+			t.Errorf("stored key is %d chars, expected %d", len(stored), tc.expectedChars)
+		}
+		if stored != key.PublicKey() {
+			t.Errorf("the ledger stored a different key")
+		}
+	}
+}
+
+func TestLiveSecp256k1SignedTransactionIsAccepted(t *testing.T) {
+	urls := nodes(t)
+	client := activeledger.NewClient(urls[0])
+	ctx := context.Background()
+
+	key, err := eckeys.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	identity, err := client.Onboard(ctx, key)
+	if err != nil {
+		t.Fatalf("onboard: %v", err)
+	}
+
+	tx, err := activeledger.NewBuilder().
+		Namespace("default").
+		Contract("namespace").
+		Input(identity.StreamID, identity.Signer,
+			activeledger.NewObject().Set("namespace", unique("goec"))).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := client.Submit(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !response.Committed() {
+		t.Fatalf("rejected: %s", response.Raw)
 	}
 }
 

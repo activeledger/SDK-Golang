@@ -15,7 +15,7 @@ type stubSigner struct {
 }
 
 func (s *stubSigner) KeyType() KeyType     { return s.keyType }
-func (s *stubSigner) PublicKeyB64() string { return s.public }
+func (s *stubSigner) PublicKey() string { return s.public }
 func (s *stubSigner) Sign(message []byte) ([]byte, error) {
 	s.signed = append(s.signed, append([]byte(nil), message...))
 	return []byte("SIGNATURE"), nil

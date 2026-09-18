@@ -92,8 +92,11 @@ func decodePublic(b64 string) (*mldsa65.PublicKey, error) {
 // KeyType satisfies activeledger.Signer.
 func (k *KeyPair) KeyType() activeledger.KeyType { return activeledger.KeyTypeMLDSA65 }
 
-// PublicKeyB64 returns the public key as the ledger expects it.
-func (k *KeyPair) PublicKeyB64() string {
+// PublicKey returns the public key as the string the ledger stores.
+//
+// The encoding depends on the scheme, which is why this is not named for
+// one: post-quantum keys are base64 and secp256k1 keys are 0x-prefixed hex.
+func (k *KeyPair) PublicKey() string {
 	raw, _ := k.public.MarshalBinary()
 	return base64.StdEncoding.EncodeToString(raw)
 }

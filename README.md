@@ -10,6 +10,64 @@ Go SDK for [Activeledger](https://github.com/activeledger/activeledger), with po
 
 ---
 
+## Key types
+
+| Key type | Wire string | Public | Private | Signature | Encoding |
+|---|---|---|---|---|---|
+| ML-DSA-65 | `ml-dsa-65` | 1952 | 4032 | 3309 | base64 |
+| secp256k1 | `secp256k1` | 33 or 65 | 32 | ~70-72, variable | `0x` hex |
+| Falcon-512 | `falcon-512` | — | — | not supported here | — |
+
+Use **secp256k1** unless the identity must outlive a cryptographically
+relevant quantum computer: it is roughly **22x smaller** per transaction, and
+every byte is stored on the ledger permanently and replicated to every node.
+It also works with hardware wallets and HSMs, and is the only way to sign for
+an identity created before post-quantum support.
+
+```go
+key, err := eckeys.Generate()                 // compressed public key
+full, err := eckeys.GenerateWith(false)       // uncompressed
+
+public := key.PublicKey()                     // "0x02a1b2..."
+private, err := key.PrivateKey()
+
+restored, err := eckeys.FromKeys(public, private)
+verifier, err := eckeys.FromPublicKey(public)
+```
+
+### secp256k1 is encoded nothing like the post-quantum keys
+
+- **Keys are `0x`-prefixed hex, not base64.** The prefix is required rather
+  than tolerated, because hex without it can decode as base64 into
+  plausible-looking bytes of the wrong length.
+- **Public keys have two valid lengths**, 33 compressed and 65 uncompressed,
+  and the ledger accepts both. A length and a SEC1 point prefix that disagree
+  are rejected by name.
+- **Private scalars are always 32 bytes**, left-padded. A leading zero byte
+  occurs about once in 400 keys, and a value that dropped it is a different
+  scalar.
+- **Signatures are SHA-256 → ECDSA → DER**, and DER length varies.
+
+### low-S, in both directions
+
+**Signing** is RFC 6979 deterministic and low-S. That is not for the ledger,
+which accepts either, but for `@noble/curves` — the reference for the
+JavaScript side — and for libsecp256k1 and Rust's `k256`, all of which reject
+high-S by default.
+
+**Verification accepts high-S**, because the ledger verifies through OpenSSL
+and produces high-S freely. Rejecting those would fail on roughly half of all
+valid signatures, and the half that succeeded would look like an intermittent
+fault. `decred/dcrd`'s DER path accepts both, which is why it is used here —
+verified against the published vectors rather than assumed.
+
+Because signing is deterministic, this SDK's signatures are byte-identical to
+`@noble/curves` for the same key and message, asserted against published
+reference bytes on every test run.
+
+`bitcoin` and `ethereum` parse as secp256k1 via `ParseKeyType` and are never
+emitted.
+
 ## Post-quantum support: ML-DSA-65 only
 
 **`ml-dsa-65` is fully supported. `falcon-512` is not, and cannot be without cgo.**
