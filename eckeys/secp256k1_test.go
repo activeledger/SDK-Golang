@@ -27,6 +27,7 @@ type vector struct {
 	PrivateKey             string `json:"privateKey"`
 	Signature              string `json:"signature"`
 	DeterministicSignature string `json:"deterministicSignature"`
+	HighSSignature         string `json:"highSSignature"`
 }
 
 func vectors(t *testing.T) []vector {
@@ -104,26 +105,38 @@ func TestVerifiesEveryPublishedSignature(t *testing.T) {
 // succeeded would make it look like an intermittent fault. k256 and
 // libsecp256k1 both enforce it by default; this must not.
 func TestHighSSignaturesFromElsewhereStillVerify(t *testing.T) {
-	var seen int
-
 	for _, v := range vectors(t) {
-		if !eckeys.IsHighSBase64(v.Signature) {
-			continue
+		// The fixture must be what it claims. A "high-S" signature that is not
+		// high-S would pass a permissive verifier for the wrong reason: green,
+		// and proving nothing.
+		if !eckeys.IsHighSBase64(v.HighSSignature) {
+			t.Fatalf("%s/%s: the published high-S fixture is not high-S",
+				v.MessageName, v.PublicKeyForm)
 		}
-		seen++
 
 		key, err := eckeys.FromPublicKey(v.PublicKey)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !key.Verify([]byte(v.Message), decode(t, v.Signature)) {
+		if !key.Verify([]byte(v.Message), decode(t, v.HighSSignature)) {
 			t.Errorf("rejected a high-S signature (%s/%s) - low-S is being enforced on verify",
 				v.MessageName, v.PublicKeyForm)
 		}
 	}
+}
 
-	if seen == 0 {
-		t.Fatal("the published vectors no longer contain a high-S signature, so this proves nothing")
+// Permissive about s only. Accepting high-S must not have quietly widened
+// anything else.
+func TestTheHighSFormStillRejectsATamperedMessage(t *testing.T) {
+	for _, v := range vectors(t) {
+		key, err := eckeys.FromPublicKey(v.PublicKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if key.Verify([]byte(v.Message+" "), decode(t, v.HighSSignature)) {
+			t.Errorf("a tampered message verified against the high-S form (%s/%s)",
+				v.MessageName, v.PublicKeyForm)
+		}
 	}
 }
 
