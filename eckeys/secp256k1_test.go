@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/eckeys"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/eckeys"
 )
 
 // secp256k1 conformance against the published cross-language vectors.

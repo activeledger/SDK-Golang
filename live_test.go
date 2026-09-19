@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/eckeys"
-	"github.com/activeledger/SDK-Golang/pqkeys"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/eckeys"
+	"github.com/activeledger/SDK-Golang/v2/pqkeys"
 )
 
 // Runs against a real 4-node Activeledger network.

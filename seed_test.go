@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/eckeys"
-	"github.com/activeledger/SDK-Golang/pqkeys"
-	"github.com/activeledger/SDK-Golang/recovery"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/eckeys"
+	"github.com/activeledger/SDK-Golang/v2/pqkeys"
+	"github.com/activeledger/SDK-Golang/v2/recovery"
 )
 
 // Seed and recovery-phrase derivation, against the published cross-language

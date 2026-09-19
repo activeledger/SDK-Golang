@@ -1,4 +1,4 @@
-module github.com/activeledger/SDK-Golang
+module github.com/activeledger/SDK-Golang/v2
 
 go 1.25.0
 

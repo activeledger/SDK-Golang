@@ -11,7 +11,7 @@ import (
 
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 
-	activeledger "github.com/activeledger/SDK-Golang"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
 )
 
 // Sizes the ledger expects. Verified against the published cross-language

@@ -6,8 +6,8 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/recovery"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/recovery"
 )
 
 // SeedSize is the length of a secp256k1 seed. For this curve the seed IS the

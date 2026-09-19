@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/pqkeys"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/pqkeys"
 )
 
 // Conformance against the vectors published by the ledger repository.

@@ -42,7 +42,7 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 
-	activeledger "github.com/activeledger/SDK-Golang"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
 )
 
 // BIP-39's fixed PBKDF2 parameters. Not tunable: changing one changes every

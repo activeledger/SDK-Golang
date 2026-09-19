@@ -5,8 +5,8 @@ import (
 
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/recovery"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/recovery"
 )
 
 // SeedSize is ML-DSA-65's seed length, FIPS 204's xi.

@@ -138,8 +138,14 @@ a Falcon identity created elsewhere.
 ## Install
 
 ```bash
-go get github.com/activeledger/SDK-Golang
+go get github.com/activeledger/SDK-Golang/v2
 ```
+
+The `/v2` suffix is required, not optional. Go demands that a module's path
+carry its major version from v2 onward, and the proxy refuses a tag whose
+`go.mod` disagrees — so `go get github.com/activeledger/SDK-Golang@v2.x` fails
+with *"module path must match major version"* rather than resolving. Imports
+carry it too: `github.com/activeledger/SDK-Golang/v2/eckeys`.
 
 ---
 
@@ -152,8 +158,8 @@ import (
 	"context"
 	"fmt"
 
-	activeledger "github.com/activeledger/SDK-Golang"
-	"github.com/activeledger/SDK-Golang/pqkeys"
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/pqkeys"
 )
 
 func main() {
