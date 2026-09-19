@@ -88,6 +88,53 @@ ML-DSA-65 is the post-quantum scheme to use from Go, and it is the one this prog
 
 ---
 
+## Seeds and recovery phrases
+
+```go
+ec, err := eckeys.FromSeed(seed, true)                  // 32 bytes
+ec, err := eckeys.FromPhrase(phrase, "", true)          // BIP-39
+pq, err := pqkeys.FromSeed(seed)                        // 32 bytes
+pq, err := pqkeys.FromPhrase(phrase, "")
+```
+
+The same seed gives the same identity in every Activeledger SDK, which is what
+makes a seed the portable private-key format — it is how a private key moves
+between languages. It matters most for PHP, whose ML-DSA-65 private key **is**
+a 32-byte seed and whose 4032-byte form does not exist.
+
+A seed of the wrong length is **refused, not padded**: a padded seed is a
+different identity, not a malformed one.
+
+For `secp256k1` the seed **is** the private scalar, so it has to be a valid
+one. This is worth stating because `secp256k1.PrivKeyFromBytes` **reduces mod
+n rather than refusing** — so without an explicit range check an out-of-range
+seed returns a perfectly functional key belonging to a different identity, and
+nothing downstream ever reports a problem. `FromSeed` checks first.
+
+The phrase is validated, wordlist **and** checksum. A mistyped phrase that is
+not checked does not fail; it derives a valid key for an identity nobody owns,
+and the only symptom is the ledger not recognising it.
+
+`eckeys.FromLegacyPhrase` recovers a phrase made by the older
+`@activeledger/sdk-bip39` package — recovery only, never for new keys.
+
+### The derivation
+
+| Type | Seed from the BIP-39 seed `S` |
+| --- | --- |
+| `secp256k1` | `HMAC-SHA512("Bitcoin seed", S)[0..32]` |
+| `ml-dsa-65` | `HKDF-SHA512(S, salt="", info="activeledger-seed-v1:ml-dsa-65", 32)` |
+| `falcon-512` | `HKDF-SHA512(S, salt="", info="activeledger-seed-v1:falcon-512", 48)` |
+
+`secp256k1` deliberately does not use HKDF: the JavaScript SDK shipped that
+derivation before the post-quantum types existed, so phrases are already in
+use, and changing it would hand those users a different key for a phrase that
+used to work.
+
+`recovery.DeriveSeed` implements all three — including `falcon-512`, which
+this SDK cannot otherwise use, so a phrase here can still produce the seed for
+a Falcon identity created elsewhere.
+
 ## Install
 
 ```bash
