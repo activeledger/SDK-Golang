@@ -138,7 +138,7 @@ a Falcon identity created elsewhere.
 ## Install
 
 ```bash
-go get github.com/activeledger/SDK-Golang/v2
+go get github.com/activeledger/SDK-Golang/v2@v2.3.0
 ```
 
 The `/v2` suffix is required, not optional. Go demands that a module's path
