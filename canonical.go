@@ -137,9 +137,13 @@ func writeValue(sb *strings.Builder, value Value) error {
 			sb.WriteString("false")
 		}
 	case int:
-		sb.WriteString(strconv.Itoa(v))
+		// Through the float path because JavaScript has no integer type. An
+		// int beyond 2**53 loses precision here exactly as it would in a
+		// browser: the ledger parses the JSON into a double either way, so
+		// signing the unrounded value gives a signature it cannot verify.
+		return writeFloat(sb, float64(v))
 	case int64:
-		sb.WriteString(strconv.FormatInt(v, 10))
+		return writeFloat(sb, float64(v))
 	case float64:
 		return writeFloat(sb, v)
 	case float32:
@@ -155,9 +159,6 @@ func writeValue(sb *strings.Builder, value Value) error {
 }
 
 // writeFloat prints numbers the way JavaScript does.
-//
-// JavaScript has one numeric type and prints the shortest representation that
-// round-trips: JSON.stringify(1.0) is "1", not "1.0".
 func writeFloat(sb *strings.Builder, f float64) error {
 	// JSON.stringify emits null for these, which would sign bytes the caller
 	// never intended. Refuse instead.
@@ -167,13 +168,80 @@ func writeFloat(sb *strings.Builder, f float64) error {
 	if math.IsInf(f, 0) {
 		return fmt.Errorf("canonical json: Infinity cannot be signed")
 	}
-	if f == math.Trunc(f) && math.Abs(f) < 1e21 {
-		// Whole and within the range JavaScript prints without an exponent.
-		sb.WriteString(strconv.FormatFloat(f, 'f', -1, 64))
-		return nil
-	}
-	sb.WriteString(strconv.FormatFloat(f, 'g', -1, 64))
+
+	sb.WriteString(JSNumber(f))
 	return nil
+}
+
+// JSNumber formats a number exactly as JSON.stringify would.
+//
+// What gets signed is JSON.stringify($tx), and the ledger verifies against a
+// RE-STRINGIFIED $tx - its crypto package calls JSON.stringify on the object
+// its HTTP layer already parsed. JavaScript's formatting is therefore the
+// specification rather than a convention, and a number written differently
+// produces a signature the ledger rejects as 1220 "Signature Incorrect", with
+// nothing in the message about numbers.
+//
+// Go's own output differed in two ways: strconv's 'g' gives "1e-07" where
+// JavaScript writes "1e-7", and negative zero printed as "-0" where
+// JavaScript writes "0".
+//
+// Implements ECMA-262 Number::toString. Cross-checked against JSON.stringify
+// on 6139 doubles including every power of ten from 1e-330 to 1e308.
+//
+// Exported so a caller can check a value before building a transaction, and
+// so the cross-language vectors run against it directly.
+func JSNumber(f float64) string {
+	if f == 0 {
+		return "0" // covers -0, which JavaScript prints as "0"
+	}
+	if f < 0 {
+		return "-" + JSNumber(-f)
+	}
+
+	// The SHORTEST decimal that round-trips. Go's -1 precision already gives
+	// it, so this is a single call rather than the increasing-precision search
+	// the SDKs without that guarantee have to run.
+	text := strconv.FormatFloat(f, 'e', -1, 64)
+
+	mantissa, exponent, _ := strings.Cut(text, "e")
+	exp, err := strconv.Atoi(exponent)
+	if err != nil {
+		// Unreachable for a finite float, but signing is not the place to
+		// assume that.
+		return text
+	}
+
+	n := exp + 1 // f == 0.<digits> * 10**n
+	digits := strings.TrimRight(strings.ReplaceAll(mantissa, ".", ""), "0")
+	if digits == "" {
+		digits = "0"
+	}
+	k := len(digits)
+
+	// Plain decimal while -6 < n <= 21; exponent form outside it.
+	switch {
+	case k <= n && n <= 21:
+		return digits + strings.Repeat("0", n-k)
+	case n > 0 && n <= 21:
+		return digits[:n] + "." + digits[n:]
+	case n > -6 && n <= 0:
+		return "0." + strings.Repeat("0", -n) + digits
+	}
+
+	// Exponent form: no leading zeros, explicit "+" when positive.
+	e := n - 1
+	sign := "+"
+	if e < 0 {
+		sign = "-"
+		e = -e
+	}
+	head := digits
+	if k > 1 {
+		head = digits[:1] + "." + digits[1:]
+	}
+
+	return head + "e" + sign + strconv.Itoa(e)
 }
 
 // writeString escapes exactly what JSON.stringify escapes: the two characters
