@@ -260,34 +260,20 @@ for _, value := range response.Responses() {
 
 ---
 
-## Events (SSE)
+## Events (SSE) - deprecated
 
-`Subscribe` returns a channel and an error channel. Cancelling the context closes the connection:
+`Client.Subscribe` is **deprecated** and will be removed in the next major version.
 
-```go
-ctx, cancel := context.WithCancel(context.Background())
-defer cancel()
+Events are no longer served by ActiveCore, which is itself deprecated and
+should not be used. A node serves contract events from its own storage
+service at `http://localhost:<storage port>/activeledgerevents/events`, and
+that service must never be reachable beyond the node's host - so a client
+SDK has nothing it should connect to.
 
-events, errs := client.Subscribe(ctx, "/events")
-for event := range events {
-	fmt.Println(event.Name, event.ID, event.Data)
-	if finished {
-		cancel()      // closes the connection
-	}
-}
-if err := <-errs; err != nil {
-	panic(err)
-}
-```
-
-The parser handles the framing rules that actually matter:
-
-- multiple `data:` lines in one event concatenate with newlines — treating them as separate events is the classic SSE bug
-- `:` comment lines (heartbeats) are ignored, not delivered as empty events
-- `event:` and `id:` never leak into the following event
-- an event still pending when the stream ends is delivered
-
-There is no client timeout on SSE: event streams are long-lived, and a timeout would close them for being quiet.
+To react to events, run your own server-sent events listener on the node's
+host and relay what your application needs through your own backend. Each
+event is an SSE frame whose `id` is `<milliseconds>-<counter>,<umid>` and
+whose `data` is `{"name", "data", "phase", "contract"}`.
 
 ---
 
