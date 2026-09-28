@@ -8,6 +8,12 @@ import (
 )
 
 // Event is one server-sent event.
+//
+// Deprecated: events are no longer served by ActiveCore, which is itself
+// deprecated. A node serves contract events from its own storage service,
+// which must never be reachable beyond the node's host, so a client has
+// nothing it should connect to. Run your own server-sent events listener on
+// the node's host instead. This will be removed in the next major version.
 type Event struct {
 	Name string
 	Data string
@@ -25,6 +31,12 @@ type Event struct {
 // The returned channel is closed when the stream ends; errors arrive on the
 // error channel, which is buffered so a caller that stops reading cannot
 // block the producer.
+//
+// Deprecated: events are no longer served by ActiveCore, which is itself
+// deprecated. A node serves contract events from its own storage service,
+// which must never be reachable beyond the node's host, so a client has
+// nothing it should connect to. Run your own server-sent events listener on
+// the node's host instead. This will be removed in the next major version.
 func (c *Client) Subscribe(ctx context.Context, path string) (<-chan Event, <-chan error) {
 	if path == "" {
 		path = "/events"
