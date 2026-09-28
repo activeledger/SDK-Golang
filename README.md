@@ -3,6 +3,9 @@
   <img src="https://raw.githubusercontent.com/activeledger/activeledger/master/docs/assets/Asset-23.png" alt="Activeledger" width="300"/>
 </picture>
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/activeledger/SDK-Golang/v2.svg)](https://pkg.go.dev/github.com/activeledger/SDK-Golang/v2)
+[![licence](https://img.shields.io/badge/licence-MIT-blue)](https://github.com/activeledger/SDK-Golang/blob/master/LICENSE)
+
 # Activeledger SDK for Go
 
 Go SDK for [Activeledger](https://github.com/activeledger/activeledger), with post-quantum identity support.
