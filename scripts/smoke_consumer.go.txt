@@ -1,0 +1,157 @@
+// Consumer program for scripts/smoke.sh. Kept as .txt so the SDK module does
+// not compile it; the script copies it into a temporary module outside the
+// repository and builds it there, the way a dependent project would.
+package main
+
+import (
+	"context"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	activeledger "github.com/activeledger/SDK-Golang/v2"
+	"github.com/activeledger/SDK-Golang/v2/eckeys"
+	"github.com/activeledger/SDK-Golang/v2/pqkeys"
+)
+
+// Public key and signature both come from the key that signed, so any
+// disagreement between building, signing and verifying shows up here.
+type signerVerifier interface {
+	activeledger.Signer
+	Verify(message, signature []byte) bool
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "FAIL:", err)
+		os.Exit(1)
+	}
+	fmt.Println("smoke: ok")
+}
+
+func run() error {
+	var mu sync.Mutex
+	var bodies []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		bodies = append(bodies, string(raw))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(raw), `"reject-me"`) {
+			// The ledger answers 200 for a rejected transaction.
+			_, _ = w.Write([]byte(`{"$summary":{"errors":["1220 : Signature Incorrect"]}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"$summary":{"commit":1,"errors":[]},"$streams":{"new":[{"id":"stream-1"}]}}`))
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	client := activeledger.NewClient(server.URL)
+
+	secp, err := eckeys.Generate()
+	if err != nil {
+		return fmt.Errorf("generate secp256k1: %w", err)
+	}
+	secpUncompressed, err := eckeys.GenerateWith(false)
+	if err != nil {
+		return fmt.Errorf("generate uncompressed secp256k1: %w", err)
+	}
+	mldsa, err := pqkeys.Generate()
+	if err != nil {
+		return fmt.Errorf("generate ml-dsa-65: %w", err)
+	}
+
+	signers := []struct {
+		name   string
+		signer signerVerifier
+		kind   activeledger.KeyType
+	}{
+		{"secp256k1", secp, activeledger.KeyTypeSecp256k1},
+		{"secp256k1-uncompressed", secpUncompressed, activeledger.KeyTypeSecp256k1},
+		{"ml-dsa-65", mldsa, activeledger.KeyTypeMLDSA65},
+	}
+
+	for _, s := range signers {
+		if s.signer.KeyType() != s.kind {
+			return fmt.Errorf("%s: key type %q", s.name, s.signer.KeyType())
+		}
+
+		tx, err := activeledger.NewBuilder().
+			Namespace("default").
+			Contract("smoke").
+			Input("stream-in", s.signer, activeledger.NewObject().Set("note", "café <&>")).
+			Build()
+		if err != nil {
+			return fmt.Errorf("%s: build: %w", s.name, err)
+		}
+
+		signed, err := tx.SignedBytes()
+		if err != nil {
+			return fmt.Errorf("%s: signed bytes: %w", s.name, err)
+		}
+		signature, err := base64.StdEncoding.DecodeString(tx.Sigs["stream-in"])
+		if err != nil {
+			return fmt.Errorf("%s: signature is not base64: %w", s.name, err)
+		}
+		if !s.signer.Verify(signed, signature) {
+			return fmt.Errorf("%s: signature does not verify", s.name)
+		}
+		if s.signer.Verify(append([]byte("x"), signed...), signature) {
+			return fmt.Errorf("%s: signature verifies for a different message", s.name)
+		}
+
+		response, err := client.Submit(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("%s: submit: %w", s.name, err)
+		}
+		if !response.Committed() {
+			return fmt.Errorf("%s: committed reply not committed: %s", s.name, response.Raw)
+		}
+
+		identity, err := client.Onboard(ctx, s.signer)
+		if err != nil {
+			return fmt.Errorf("%s: onboard: %w", s.name, err)
+		}
+		if identity.StreamID != "stream-1" {
+			return fmt.Errorf("%s: onboarded stream %q", s.name, identity.StreamID)
+		}
+
+		rejected, err := activeledger.NewBuilder().
+			Namespace("default").
+			Contract("reject-me").
+			Input("stream-in", s.signer, nil).
+			Build()
+		if err != nil {
+			return fmt.Errorf("%s: build rejected: %w", s.name, err)
+		}
+		reply, err := client.Submit(ctx, rejected)
+		if err != nil {
+			return fmt.Errorf("%s: a rejected HTTP 200 reply became a transport error: %w", s.name, err)
+		}
+		if reply.Committed() || len(reply.Errors()) != 1 {
+			return fmt.Errorf("%s: rejected reply looked committed: %s", s.name, reply.Raw)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	// Per key type: one submit, one onboard, one rejected submit.
+	if want := len(signers) * 3; len(bodies) != want {
+		return fmt.Errorf("server saw %d requests, want %d", len(bodies), want)
+	}
+	for _, body := range bodies {
+		if !strings.Contains(body, `"$sigs"`) {
+			return fmt.Errorf("a request carried no signatures: %s", body)
+		}
+	}
+	return nil
+}
