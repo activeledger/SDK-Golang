@@ -295,7 +295,7 @@ type Signer interface {
 
 **Always send the key type.** The ledger defaults a missing `type` to `"rsa"` and then attempts RSA verification against a base64 post-quantum blob. This SDK always sends it.
 
-**A rejected transaction is HTTP 200.** Check `response.Committed()`, never the status code.
+**A rejected transaction is HTTP 200.** Check `response.Committed()`, never the status code. `Committed()` is also false for a non-2xx HTTP status or a body that is not a JSON object (empty, HTML, `[]`, `null`); `Errors()` says why.
 
 **Errors are unhelpful by design.** A wrong type string, a wrong-length key, or signed bytes differing by one escape all come back as **1220 "Signature Incorrect"**. This SDK validates key lengths up front so these fail locally with a message naming the problem.
 

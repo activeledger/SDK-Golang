@@ -3,6 +3,7 @@ package activeledger
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -65,6 +66,11 @@ func (c *Client) Subscribe(ctx context.Context, path string) (<-chan Event, <-ch
 			return
 		}
 		defer response.Body.Close()
+
+		if response.StatusCode < 200 || response.StatusCode > 299 {
+			errs <- fmt.Errorf("event stream refused: HTTP status %d", response.StatusCode)
+			return
+		}
 
 		var name, id string
 		var data []string
