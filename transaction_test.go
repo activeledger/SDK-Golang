@@ -211,3 +211,81 @@ func TestSignaturesAreBase64(t *testing.T) {
 		t.Errorf("signature was not base64: %v", err)
 	}
 }
+
+func TestOutputsAreEmittedOnlyWhenAddedAndKeepTheirPayload(t *testing.T) {
+	without, err := NewBuilder().Namespace("n").Contract("c").Input("s", newStub(), nil).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := without.Body.Get("$o"); ok {
+		t.Error("$o should be absent when no output was added")
+	}
+
+	with, err := NewBuilder().Namespace("n").Contract("c").
+		Input("s", newStub(), nil).
+		Output("out1", NewObject().Set("amount", 5)).
+		Output("out2", nil).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := with.SignedBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `"$o":{"out1":{"amount":5},"out2":{}}`
+	if !strings.Contains(string(body), want) {
+		t.Fatalf("missing %s in %s", want, body)
+	}
+}
+
+type failingSigner struct{ stubSigner }
+
+func (f *failingSigner) Sign([]byte) ([]byte, error) { return nil, errSigning }
+
+var errSigning = &signingError{}
+
+type signingError struct{}
+
+func (*signingError) Error() string { return "hardware token removed" }
+
+func TestASigningFailureNamesTheInputAndIsNotSwallowed(t *testing.T) {
+	signer := &failingSigner{stubSigner{keyType: KeyTypeMLDSA65, public: "P"}}
+
+	_, err := NewBuilder().Namespace("n").Contract("c").Input("streamA", signer, nil).Build()
+	if err == nil || !strings.Contains(err.Error(), "streamA") ||
+		!strings.Contains(err.Error(), "hardware token removed") {
+		t.Fatalf("expected the input and cause to be named, got %v", err)
+	}
+
+	if _, err := OnboardTransaction(signer, ""); err == nil ||
+		!strings.Contains(err.Error(), "hardware token removed") {
+		t.Fatalf("onboarding swallowed the signing error: %v", err)
+	}
+}
+
+func TestBuildRefusesAnUnsignableValue(t *testing.T) {
+	_, err := NewBuilder().Namespace("n").Contract("c").
+		Input("s", newStub(), NewObject().Set("bad", struct{}{})).Build()
+	if err == nil {
+		t.Fatal("an unsupported payload type was signed")
+	}
+}
+
+func TestReusingAnInputLabelKeepsOneSignature(t *testing.T) {
+	signer := newStub()
+	tx, err := NewBuilder().Namespace("n").Contract("c").
+		Input("s", signer, NewObject().Set("a", 1)).
+		Input("s", signer, NewObject().Set("a", 2)).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tx.Sigs) != 1 || len(signer.signed) != 1 {
+		t.Fatalf("got %d signatures, %d signing calls; want 1 each", len(tx.Sigs), len(signer.signed))
+	}
+	body, _ := tx.SignedBytes()
+	if !strings.Contains(string(body), `"s":{"a":2}`) {
+		t.Fatalf("the later payload did not replace the earlier: %s", body)
+	}
+}
