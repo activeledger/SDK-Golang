@@ -187,3 +187,41 @@ func TestReplacingAKeyKeepsItsPosition(t *testing.T) {
 		t.Errorf("got %s want %s", got, want)
 	}
 }
+
+func TestSortedKeysSortsWithoutDisturbingInsertionOrder(t *testing.T) {
+	o := NewObject().Set("zebra", 1).Set("alpha", 2).Set("mid", 3)
+
+	sorted := o.SortedKeys()
+	if strings.Join(sorted, ",") != "alpha,mid,zebra" {
+		t.Errorf("SortedKeys = %v", sorted)
+	}
+	if strings.Join(o.Keys(), ",") != "zebra,alpha,mid" {
+		t.Errorf("SortedKeys disturbed insertion order: %v", o.Keys())
+	}
+	if mustJSON(t, o) != `{"zebra":1,"alpha":2,"mid":3}` {
+		t.Errorf("serialisation order changed: %s", mustJSON(t, o))
+	}
+}
+
+func TestKeysReturnsACopy(t *testing.T) {
+	o := NewObject().Set("a", 1).Set("b", 2)
+	o.Keys()[0] = "tampered"
+	if o.Keys()[0] != "a" {
+		t.Fatal("mutating the returned slice changed the object")
+	}
+}
+
+func TestAllSupportedNumericTypesSerialise(t *testing.T) {
+	o := NewObject().Set("i", 3).Set("i64", int64(-4)).Set("f32", float32(0.5)).Set("f64", 1.25).
+		Set("t", true).Set("f", false).Set("n", nil)
+	if got := mustJSON(t, o); got != `{"i":3,"i64":-4,"f32":0.5,"f64":1.25,"t":true,"f":false,"n":null}` {
+		t.Fatalf("got %s", got)
+	}
+}
+
+func TestNaNInsideNestedStructureIsRefused(t *testing.T) {
+	_, err := CanonicalJSON([]Value{NewObject().Set("x", math.NaN())})
+	if err == nil {
+		t.Fatal("a nested NaN was signed")
+	}
+}
