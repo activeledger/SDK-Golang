@@ -10,7 +10,7 @@
 
 Go SDK for [Activeledger](https://github.com/activeledger/activeledger), with post-quantum identity support.
 
-**Requires Activeledger 4.7.0+** for `ml-dsa-65`. Go 1.21+.
+**Requires Activeledger 4.7.0+** for `ml-dsa-65`. Go 1.25+.
 
 > **Rewritten.** The previous version dated from 2021, targeted Go 1.15, vendored a 2012 secp256k1 implementation and had no tests.
 
@@ -144,7 +144,7 @@ a Falcon identity created elsewhere.
 ## Install
 
 ```bash
-go get github.com/activeledger/SDK-Golang/v2@v2.3.0
+go get github.com/activeledger/SDK-Golang/v2@v2.4.0
 ```
 
 The `/v2` suffix is required, not optional. Go demands that a module's path
@@ -197,7 +197,7 @@ func main() {
 ```go
 key, _ := pqkeys.Generate()
 
-key.PublicKeyB64()          // give this to the ledger
+pub := key.PublicKey()   // give this to the ledger
 priv, _ := key.PrivateKeyB64()
 
 sig, _ := key.Sign([]byte("some bytes"))
@@ -284,7 +284,7 @@ Anything satisfying `Signer` works, so an HSM or a remote signing service needs 
 ```go
 type Signer interface {
 	KeyType() KeyType
-	PublicKeyB64() string
+	PublicKey() string
 	Sign(message []byte) ([]byte, error)
 }
 ```
