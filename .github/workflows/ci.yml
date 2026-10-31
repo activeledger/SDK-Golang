@@ -23,4 +23,6 @@ jobs:
       - run: go build ./...
       # Builds the SDK the way a dependent project would, from outside the
       # module, so a broken module path or go.sum fails here.
+      # The script resolves offline (GOPROXY=off), so fill the module cache first.
+      - run: go mod download all
       - run: scripts/smoke.sh
