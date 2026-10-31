@@ -125,3 +125,25 @@ func TestFromPublicRejectsBadKeysAndHasNoPrivateHalf(t *testing.T) {
 		t.Errorf("verify-only pair returned a private key %q, %v", private, err)
 	}
 }
+
+func TestFromKeysRejectsAMismatchedPair(t *testing.T) {
+	first, err := pqkeys.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := pqkeys.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherPrivate, err := second.PrivateKeyB64()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := pqkeys.FromKeys(first.PublicKey(), otherPrivate)
+	if err == nil || restored != nil {
+		t.Fatalf("accepted a mismatched pair (pair %v, err %v)", restored, err)
+	}
+	if !strings.Contains(err.Error(), "does not match") {
+		t.Errorf("error %q does not say the keys do not match", err)
+	}
+}
