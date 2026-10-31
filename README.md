@@ -21,11 +21,11 @@ Go SDK for [Activeledger](https://github.com/activeledger/activeledger), with po
 | Key type | Wire string | Public | Private | Signature | Encoding |
 |---|---|---|---|---|---|
 | ML-DSA-65 | `ml-dsa-65` | 1952 | 4032 | 3309 | base64 |
-| secp256k1 | `secp256k1` | 33 or 65 | 32 | ~70-72, variable | `0x` hex |
+| secp256k1 | `secp256k1` | 33 or 65 | 32 | 68-71, variable | `0x` hex |
 | Falcon-512 | `falcon-512` | — | — | not supported here | — |
 
 Use **secp256k1** unless the identity must outlive a cryptographically
-relevant quantum computer: it is roughly **22x smaller** per transaction, and
+relevant quantum computer: its signatures are far smaller, and
 every byte is stored on the ledger permanently and replicated to every node.
 It also works with hardware wallets and HSMs, and is the only way to sign for
 an identity created before post-quantum support.
