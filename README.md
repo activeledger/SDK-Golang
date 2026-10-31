@@ -37,7 +37,7 @@ full, err := eckeys.GenerateWith(false)       // uncompressed
 public := key.PublicKey()                     // "0x02a1b2..."
 private, err := key.PrivateKey()
 
-restored, err := eckeys.FromKeys(public, private)
+restored, err := eckeys.FromKeys(public, private) // errors if they are not a pair
 verifier, err := eckeys.FromPublicKey(public)
 ```
 
@@ -204,7 +204,7 @@ sig, _ := key.Sign([]byte("some bytes"))
 key.Verify([]byte("some bytes"), sig)   // true
 
 // Reload later
-same, _ := pqkeys.FromKeys(pub, priv)
+same, _ := pqkeys.FromKeys(pub, priv)   // errors if they are not a pair
 
 // Verify-only
 checker, _ := pqkeys.FromPublic(pub)
@@ -295,7 +295,7 @@ type Signer interface {
 
 **Always send the key type.** The ledger defaults a missing `type` to `"rsa"` and then attempts RSA verification against a base64 post-quantum blob. This SDK always sends it.
 
-**A rejected transaction is HTTP 200.** Check `response.Committed()`, never the status code. `Committed()` is also false for a non-2xx HTTP status or a body that is not a JSON object (empty, HTML, `[]`, `null`); `Errors()` says why.
+**A rejected transaction is HTTP 200.** Check `response.Committed()`, never the status code. `Committed()` is also false for a non-2xx HTTP status, a body that is not a JSON object (empty, HTML, `[]`, `null`), or an object with no `$summary` object (`{}`); `Errors()` says why.
 
 **Errors are unhelpful by design.** A wrong type string, a wrong-length key, or signed bytes differing by one escape all come back as **1220 "Signature Incorrect"**. This SDK validates key lengths up front so these fail locally with a message naming the problem.
 

@@ -32,11 +32,12 @@ func newResponse(raw string) *Response {
 // HTTP success as ledger success is wrong -- and wrong in a way that looks
 // fine until something important silently did not happen.
 //
-// A non-2xx HTTP status, or a body that is not a JSON object (empty, HTML,
-// an array, null), is also reported as an error: that is a proxy or a failed
-// node talking, never a commit.
+// A non-2xx HTTP status, a body that is not a JSON object (empty, HTML, an
+// array, null), or an object without a "$summary" object (such as {}) is also
+// reported as an error: that is a proxy or a failed node talking, never a
+// commit. Every real ledger reply carries a $summary.
 func (r *Response) Errors() []string {
-	summary, _ := r.doc["$summary"].(map[string]interface{})
+	summary, hasSummary := r.doc["$summary"].(map[string]interface{})
 	raw, _ := summary["errors"].([]interface{})
 	out := make([]string, 0, len(raw)+2)
 	if r.status != 0 && (r.status < 200 || r.status > 299) {
@@ -44,6 +45,8 @@ func (r *Response) Errors() []string {
 	}
 	if r.doc == nil {
 		out = append(out, "response body is not a JSON object")
+	} else if !hasSummary {
+		out = append(out, "response has no $summary")
 	}
 	for _, e := range raw {
 		out = append(out, fmt.Sprint(e))

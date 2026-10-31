@@ -40,7 +40,8 @@ func Generate() (*KeyPair, error) {
 	return &KeyPair{public: public, private: private}, nil
 }
 
-// FromKeys loads a signing key pair from base64 key material.
+// FromKeys loads a signing key pair from base64 key material. The public key
+// must be the one derived from the private key.
 func FromKeys(publicB64, privateB64 string) (*KeyPair, error) {
 	public, err := decodePublic(publicB64)
 	if err != nil {
@@ -60,6 +61,9 @@ func FromKeys(publicB64, privateB64 string) (*KeyPair, error) {
 	var private mldsa65.PrivateKey
 	if err := private.UnmarshalBinary(privateBytes); err != nil {
 		return nil, fmt.Errorf("private key rejected: %w", err)
+	}
+	if !private.Public().(*mldsa65.PublicKey).Equal(public) {
+		return nil, fmt.Errorf("ml-dsa-65 private key does not match the public key")
 	}
 	return &KeyPair{public: public, private: &private}, nil
 }

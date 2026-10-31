@@ -98,10 +98,33 @@ func TestAMalformedReplyYieldsEmptyAccessorsAndKeepsTheRaw(t *testing.T) {
 	}
 }
 
-func TestMissingSummaryAndStreamsAreHandled(t *testing.T) {
+func TestWronglyTypedSectionsProduceNoData(t *testing.T) {
 	r := newResponse(`{"$summary":"oops","$streams":[],"$responses":{}}`)
-	if len(r.Errors()) != 0 || len(r.NewStreams()) != 0 || len(r.Responses()) != 0 {
+	if len(r.NewStreams()) != 0 || len(r.Responses()) != 0 {
 		t.Fatal("wrongly typed sections produced data")
+	}
+}
+
+// A committed reply always carries a $summary object; without one there is
+// nothing to say the ledger accepted it.
+func TestAnObjectWithoutASummaryObjectIsNotCommitted(t *testing.T) {
+	for _, raw := range []string{
+		`{}`, `{"$streams":{"new":[{"id":"x"}]}}`, `{"$summary":"oops"}`,
+		`{"$summary":null}`, `{"$summary":[]}`,
+	} {
+		r := newResponse(raw)
+		if r.Committed() {
+			t.Errorf("%s was reported as committed", raw)
+		}
+		if errs := r.Errors(); len(errs) != 1 || !strings.Contains(errs[0], "no $summary") {
+			t.Errorf("%s: errors %v", raw, errs)
+		}
+	}
+}
+
+func TestASummaryWithoutErrorsOrCommitCountIsCommitted(t *testing.T) {
+	if !newResponse(`{"$summary":{}}`).Committed() {
+		t.Fatal("an empty $summary object with no errors was rejected")
 	}
 }
 

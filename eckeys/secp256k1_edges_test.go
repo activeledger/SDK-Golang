@@ -174,3 +174,17 @@ func TestUncompressedPointOffTheCurveIsRejected(t *testing.T) {
 		t.Fatalf("FromKeys accepted an off-curve point (pair %v, err %v)", pair, err)
 	}
 }
+
+func TestFromKeysRejectsAMismatchedPair(t *testing.T) {
+	for _, compressed := range []bool{true, false} {
+		first, _ := generated(t, compressed)
+		_, otherPrivate := generated(t, compressed)
+		restored, err := eckeys.FromKeys(first.PublicKey(), otherPrivate)
+		if err == nil || restored != nil {
+			t.Fatalf("compressed=%v: accepted a mismatched pair (pair %v, err %v)", compressed, restored, err)
+		}
+		if !strings.Contains(err.Error(), "does not match") {
+			t.Errorf("compressed=%v: error %q does not say the keys do not match", compressed, err)
+		}
+	}
+}

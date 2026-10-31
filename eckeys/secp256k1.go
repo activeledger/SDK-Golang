@@ -88,7 +88,8 @@ func FromPublicKey(publicKey string) (*KeyPair, error) {
 	return &KeyPair{public: public, publicRaw: raw}, nil
 }
 
-// FromKeys restores a signing key pair from stored key material.
+// FromKeys restores a signing key pair from stored key material. The public
+// key must be the one derived from the private key.
 func FromKeys(publicKey, privateKey string) (*KeyPair, error) {
 	pair, err := FromPublicKey(publicKey)
 	if err != nil {
@@ -104,7 +105,11 @@ func FromKeys(publicKey, privateKey string) (*KeyPair, error) {
 			"secp256k1 private key is %d bytes, expected %d", len(scalar), PrivateKeySize)
 	}
 
-	pair.private = secp256k1.PrivKeyFromBytes(scalar)
+	private := secp256k1.PrivKeyFromBytes(scalar)
+	if !private.PubKey().IsEqual(pair.public) {
+		return nil, fmt.Errorf("secp256k1 private key does not match the public key")
+	}
+	pair.private = private
 	return pair, nil
 }
 
