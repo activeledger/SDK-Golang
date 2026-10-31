@@ -251,8 +251,18 @@ func JSNumber(f float64) string {
 // bug; HTML-escaping <, > and & would be Go's own default.
 func writeString(sb *strings.Builder, s string) {
 	sb.WriteByte('"')
-	for _, r := range s {
-		switch r {
+	// Runs of plain ASCII (every base64 signature and hex key) are copied in
+	// one write rather than rune by rune.
+	start := 0
+	for i := 0; i < len(s); {
+		c := s[i]
+		if c >= 0x20 && c < utf8.RuneSelf && c != '"' && c != '\\' {
+			i++
+			continue
+		}
+		sb.WriteString(s[start:i])
+		width := 1
+		switch c {
 		case '"':
 			sb.WriteString(`\"`)
 		case '\\':
@@ -268,14 +278,21 @@ func writeString(sb *strings.Builder, s string) {
 		case '\f':
 			sb.WriteString(`\f`)
 		default:
-			if r < 0x20 {
-				sb.WriteString(fmt.Sprintf(`\u%04x`, r))
-			} else if r == utf8.RuneError {
-				sb.WriteRune(r)
+			if c < 0x20 {
+				sb.WriteString(`\u00`)
+				sb.WriteByte("0123456789abcdef"[c>>4])
+				sb.WriteByte("0123456789abcdef"[c&0xf])
 			} else {
+				// Non-ASCII passes through; an invalid byte becomes U+FFFD,
+				// as ranging over the string always did.
+				var r rune
+				r, width = utf8.DecodeRuneInString(s[i:])
 				sb.WriteRune(r)
 			}
 		}
+		i += width
+		start = i
 	}
+	sb.WriteString(s[start:])
 	sb.WriteByte('"')
 }
