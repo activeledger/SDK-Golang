@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Response parsing and the HTTP client, against a local httptest server. No
@@ -309,5 +310,67 @@ func TestOnboardFailsOnANon2xxStatus(t *testing.T) {
 	client, _ := serve(t, committedReply, http.StatusBadGateway)
 	if _, err := client.Onboard(context.Background(), newStub()); err == nil {
 		t.Fatal("onboarding succeeded on a 502")
+	}
+}
+
+// A reply cut off mid-body is a transport failure, not a short response: the
+// partial text would parse as nothing and read as "not committed" rather than
+// as the dropped connection it was.
+func TestSubmitRawReportsAReplyCutOffMidBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		_, _ = w.Write([]byte(`{"$summary":`))
+		w.(http.Flusher).Flush()
+		panic(http.ErrAbortHandler)
+	}))
+	t.Cleanup(server.Close)
+
+	response, err := NewClient(server.URL).SubmitRaw(context.Background(), "{}")
+	if err == nil {
+		t.Fatalf("a truncated reply was returned as a response: %q", response.Raw)
+	}
+}
+
+func TestSubmitRawGivesUpOnANodeThatNeverAnswers(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(release) })
+
+	client := NewClient(server.URL)
+	client.HTTP.Timeout = 50 * time.Millisecond
+	if _, err := client.SubmitRaw(context.Background(), "{}"); err == nil {
+		t.Fatal("a silent node did not time out")
+	}
+}
+
+func TestACancelledContextInterruptsASubmitAlreadyInFlight(t *testing.T) {
+	arrived := make(chan struct{})
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(arrived)
+		<-release
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(release) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewClient(server.URL).SubmitRaw(ctx, "{}")
+		done <- err
+	}()
+	<-arrived
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("a cancelled in-flight request reported success")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelling the context did not interrupt the request")
 	}
 }
