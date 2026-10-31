@@ -15,7 +15,8 @@ import (
 type Response struct {
 	Raw string
 
-	doc map[string]interface{}
+	doc    map[string]interface{}
+	status int // HTTP status; 0 when the response was not read from a request
 }
 
 func newResponse(raw string) *Response {
@@ -30,10 +31,20 @@ func newResponse(raw string) *Response {
 // was 200. The ledger answers 200 for a rejected transaction, so treating
 // HTTP success as ledger success is wrong -- and wrong in a way that looks
 // fine until something important silently did not happen.
+//
+// A non-2xx HTTP status, or a body that is not a JSON object (empty, HTML,
+// an array, null), is also reported as an error: that is a proxy or a failed
+// node talking, never a commit.
 func (r *Response) Errors() []string {
 	summary, _ := r.doc["$summary"].(map[string]interface{})
 	raw, _ := summary["errors"].([]interface{})
-	out := make([]string, 0, len(raw))
+	out := make([]string, 0, len(raw)+2)
+	if r.status != 0 && (r.status < 200 || r.status > 299) {
+		out = append(out, fmt.Sprintf("HTTP status %d", r.status))
+	}
+	if r.doc == nil {
+		out = append(out, "response body is not a JSON object")
+	}
 	for _, e := range raw {
 		out = append(out, fmt.Sprint(e))
 	}
@@ -116,7 +127,9 @@ func (c *Client) SubmitRaw(ctx context.Context, body string) (*Response, error) 
 	if err != nil {
 		return nil, err
 	}
-	return newResponse(string(raw)), nil
+	result := newResponse(string(raw))
+	result.status = response.StatusCode
+	return result, nil
 }
 
 // Onboard creates a new identity.
@@ -134,7 +147,7 @@ func (c *Client) Onboard(ctx context.Context, signer Signer) (*Identity, error) 
 		return nil, err
 	}
 	streams := response.NewStreams()
-	if len(streams) == 0 {
+	if len(streams) == 0 || !response.Committed() {
 		return nil, fmt.Errorf("onboard failed: %s", response.Raw)
 	}
 	return &Identity{StreamID: streams[0], Signer: signer}, nil

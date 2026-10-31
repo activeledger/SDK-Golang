@@ -160,3 +160,17 @@ func derSignature(r, s [32]byte) []byte {
 	body := append(integer(r), integer(s)...)
 	return append([]byte{0x30, byte(len(body))}, body...)
 }
+
+// An uncompressed point that is not on y^2 = x^3 + 7 must be refused, or a
+// key that can never verify (and enables invalid-curve attacks) is accepted.
+func TestUncompressedPointOffTheCurveIsRejected(t *testing.T) {
+	// (1, 1) is not on secp256k1: 1 != 1 + 7.
+	offCurve := "0x04" + strings.Repeat("00", 31) + "01" + strings.Repeat("00", 31) + "01"
+	if pair, err := eckeys.FromPublicKey(offCurve); err == nil || pair != nil {
+		t.Fatalf("FromPublicKey accepted an off-curve point (pair %v, err %v)", pair, err)
+	}
+	_, private := generated(t, false)
+	if pair, err := eckeys.FromKeys(offCurve, private); err == nil || pair != nil {
+		t.Fatalf("FromKeys accepted an off-curve point (pair %v, err %v)", pair, err)
+	}
+}

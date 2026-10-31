@@ -110,3 +110,19 @@ func TestCancellingWhileAnEventIsUnreadClosesTheChannel(t *testing.T) {
 		}
 	}
 }
+
+func TestSubscribeReportsANon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("data: not an event\n\n"))
+	}))
+	defer server.Close()
+
+	events, errs := NewClient(server.URL).Subscribe(context.Background(), "")
+	if e, open := <-events; open {
+		t.Fatalf("an event was delivered from a 502: %v", e)
+	}
+	if err := <-errs; err == nil {
+		t.Fatal("a 502 produced no error")
+	}
+}

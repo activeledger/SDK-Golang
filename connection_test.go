@@ -89,8 +89,11 @@ func TestAMalformedReplyYieldsEmptyAccessorsAndKeepsTheRaw(t *testing.T) {
 		if r.Raw != raw {
 			t.Errorf("Raw changed for %q", raw)
 		}
-		if len(r.NewStreams()) != 0 || len(r.Responses()) != 0 || len(r.Errors()) != 0 {
+		if len(r.NewStreams()) != 0 || len(r.Responses()) != 0 {
 			t.Errorf("%q produced data", raw)
+		}
+		if r.Committed() || len(r.Errors()) == 0 {
+			t.Errorf("%q was reported as committed", raw)
 		}
 	}
 }
@@ -246,5 +249,42 @@ func TestOnboardPropagatesTransportErrors(t *testing.T) {
 
 	if _, err := NewClient(url).Onboard(context.Background(), newStub()); err == nil {
 		t.Fatal("expected a connection error")
+	}
+}
+
+// A proxy or failed node answers with a non-2xx status and often no JSON.
+func TestSubmitRawReportsANon2xxStatusAsNotCommitted(t *testing.T) {
+	for _, reply := range []string{"", "<html>502 Bad Gateway</html>", committedReply} {
+		client, _ := serve(t, reply, http.StatusBadGateway)
+		response, err := client.SubmitRaw(context.Background(), "{}")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.Committed() {
+			t.Errorf("a 502 with body %q was reported as committed", reply)
+		}
+		if errs := response.Errors(); len(errs) == 0 || !strings.Contains(errs[0], "502") {
+			t.Errorf("errors %v do not name the status", errs)
+		}
+	}
+}
+
+func TestSubmitRawReportsANonObject2xxBodyAsNotCommitted(t *testing.T) {
+	for _, reply := range []string{"", "<html>ok</html>", "[]", "null"} {
+		client, _ := serve(t, reply, http.StatusOK)
+		response, err := client.SubmitRaw(context.Background(), "{}")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.Committed() {
+			t.Errorf("a 200 with body %q was reported as committed", reply)
+		}
+	}
+}
+
+func TestOnboardFailsOnANon2xxStatus(t *testing.T) {
+	client, _ := serve(t, committedReply, http.StatusBadGateway)
+	if _, err := client.Onboard(context.Background(), newStub()); err == nil {
+		t.Fatal("onboarding succeeded on a 502")
 	}
 }
