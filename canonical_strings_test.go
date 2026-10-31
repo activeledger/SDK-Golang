@@ -38,3 +38,14 @@ func TestEmptyStringIsJustQuotes(t *testing.T) {
 		t.Errorf("got %s", got)
 	}
 }
+
+// An invalid UTF-8 byte is written as U+FFFD, and escapes in the middle of a
+// long plain run land in the right place.
+func TestInvalidUTF8AndEscapesInsideRuns(t *testing.T) {
+	if got, want := mustJSON(t, "a\xffb\xc3"), "\"a�b�\""; got != want {
+		t.Errorf("got %+q want %+q", got, want)
+	}
+	if got, want := mustJSON(t, "abc\"def\\ghé\x01ij"), `"abc\"def\\ghé\u0001ij"`; got != want {
+		t.Errorf("got %s want %s", got, want)
+	}
+}
